@@ -1,0 +1,11 @@
+type InitializableImmutableAdminUpgradeabilityProxy_LiquidationCall {
+  id: ID!
+  collateralAsset: String!
+  debtAsset: String!
+  user: String!
+  debtToCover: BigInt!
+  liquidatedCollateralAmount: BigInt!
+  liquidator: String!
+  receiveAToken: Boolean!
+}
+
