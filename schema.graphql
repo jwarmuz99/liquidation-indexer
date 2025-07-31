@@ -1,5 +1,7 @@
 type InitializableImmutableAdminUpgradeabilityProxy_LiquidationCall {
   id: ID!
+  chainId: Int!
+  timestamp: BigInt!
   collateralAsset: String!
   debtAsset: String!
   user: String!
@@ -8,4 +10,3 @@ type InitializableImmutableAdminUpgradeabilityProxy_LiquidationCall {
   liquidator: String!
   receiveAToken: Boolean!
 }
-
