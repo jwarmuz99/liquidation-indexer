@@ -1,4 +1,4 @@
-type InitializableImmutableAdminUpgradeabilityProxy_LiquidationCall {
+type AaveProxy_LiquidationCall {
   id: ID!
   chainId: Int!
   timestamp: BigInt!
