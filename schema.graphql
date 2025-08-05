@@ -10,3 +10,24 @@ type AaveProxy_LiquidationCall {
   liquidator: String!
   receiveAToken: Boolean!
 }
+
+type EulerFactory_ProxyCreated {
+  id: ID!
+  chainId: Int!
+  timestamp: BigInt!
+  proxy: String!
+  upgradeable: Boolean!
+  implementation: String!
+  trailingData: String!
+}
+
+type EulerVaultProxy_Liquidate {
+  id: ID!
+  chainId: Int!
+  timestamp: BigInt!
+  liquidator: String!
+  violator: String!
+  collateral: String!
+  repayAssets: BigInt!
+  yieldBalance: BigInt!
+}

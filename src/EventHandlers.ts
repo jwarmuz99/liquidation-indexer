@@ -1,7 +1,14 @@
 /*
  * Please refer to https://docs.envio.dev for a thorough guide on all Envio indexer features
  */
-import { AaveProxy, AaveProxy_LiquidationCall } from "generated";
+import {
+  AaveProxy,
+  AaveProxy_LiquidationCall,
+  EulerFactory,
+  EulerFactory_ProxyCreated,
+  EulerVaultProxy,
+  EulerVaultProxy_Liquidate,
+} from "generated";
 
 AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
   const entity: AaveProxy_LiquidationCall = {
@@ -18,4 +25,37 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
   };
 
   context.AaveProxy_LiquidationCall.set(entity);
+});
+
+EulerFactory.ProxyCreated.handler(async ({ event, context }) => {
+  const entity: EulerFactory_ProxyCreated = {
+    id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
+    chainId: event.chainId,
+    timestamp: BigInt(event.block.timestamp),
+    proxy: event.params.proxy,
+    upgradeable: event.params.upgradeable,
+    implementation: event.params.implementation,
+    trailingData: event.params.trailingData,
+  };
+
+  context.EulerFactory_ProxyCreated.set(entity);
+});
+
+EulerFactory.ProxyCreated.contractRegister(async ({ event, context }) => {
+  context.addEulerVaultProxy(event.params.proxy);
+});
+
+EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
+  const entity: EulerVaultProxy_Liquidate = {
+    id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
+    chainId: event.chainId,
+    timestamp: BigInt(event.block.timestamp),
+    liquidator: event.params.liquidator,
+    violator: event.params.violator,
+    collateral: event.params.collateral,
+    repayAssets: event.params.repayAssets,
+    yieldBalance: event.params.yieldBalance,
+  };
+
+  context.EulerVaultProxy_Liquidate.set(entity);
 });

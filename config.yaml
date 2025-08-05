@@ -12,6 +12,17 @@ networks:
       - name: AaveProxy
         address:
           - 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2
+      - name: EulerFactory
+        address:
+          - 0x29a56a1b8214D9Cf7c5561811750D5cBDb45CC8e
+        handler: src/EventHandlers.ts
+        events:
+          - event: ProxyCreated(address indexed proxy, bool upgradeable, address implementation, bytes trailingData)
+      - name: EulerVaultProxy
+        address:
+        handler: src/EventHandlers.ts
+        events:
+          - event: Liquidate(address indexed liquidator, address indexed violator, address collateral, uint256 repayAssets, uint256 yieldBalance)
   - id: 10
     start_block: 0
     contracts:
