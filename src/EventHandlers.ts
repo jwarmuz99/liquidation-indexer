@@ -10,6 +10,7 @@ import {
   EulerVaultProxy_Liquidate,
   Morpho,
   Morpho_Liquidate,
+  GeneralizedLiquidation,
 } from "generated";
 
 AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
@@ -27,6 +28,20 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
   };
 
   context.AaveProxy_LiquidationCall.set(entity);
+
+  const generalized: GeneralizedLiquidation = {
+    id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
+    chainId: event.chainId,
+    timestamp: BigInt(event.block.timestamp),
+    protocol: "Aave",
+    borrower: event.params.user,
+    liquidator: event.params.liquidator,
+    collateralAsset: event.params.collateralAsset,
+    debtAsset: event.params.debtAsset,
+    repaidAssets: event.params.debtToCover,
+    seizedAssets: event.params.liquidatedCollateralAmount,
+  };
+  context.GeneralizedLiquidation.set(generalized);
 });
 
 EulerFactory.ProxyCreated.handler(async ({ event, context }) => {
@@ -60,6 +75,20 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
   };
 
   context.EulerVaultProxy_Liquidate.set(entity);
+
+  const generalized: GeneralizedLiquidation = {
+    id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
+    chainId: event.chainId,
+    timestamp: BigInt(event.block.timestamp),
+    protocol: "Euler",
+    borrower: event.params.violator,
+    liquidator: event.params.liquidator,
+    collateralAsset: event.params.collateral,
+    debtAsset: null,
+    repaidAssets: event.params.repayAssets,
+    seizedAssets: event.params.yieldBalance,
+  } as unknown as GeneralizedLiquidation; // allow null debtAsset
+  context.GeneralizedLiquidation.set(generalized);
 });
 
 Morpho.Liquidate.handler(async ({ event, context }) => {
@@ -78,4 +107,18 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
   };
 
   context.Morpho_Liquidate.set(entity);
+
+  const generalized: GeneralizedLiquidation = {
+    id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
+    chainId: event.chainId,
+    timestamp: BigInt(event.block.timestamp),
+    protocol: "Morpho",
+    borrower: event.params.borrower,
+    liquidator: event.params.caller,
+    collateralAsset: null,
+    debtAsset: null,
+    repaidAssets: event.params.repaidAssets,
+    seizedAssets: event.params.seizedAssets,
+  } as unknown as GeneralizedLiquidation; // allow nulls
+  context.GeneralizedLiquidation.set(generalized);
 });

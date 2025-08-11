@@ -45,3 +45,16 @@ type Morpho_Liquidate {
   badDebtAssets: BigInt!
   badDebtShares: BigInt!
 }
+
+type GeneralizedLiquidation {
+  id: ID!
+  chainId: Int!
+  timestamp: BigInt!
+  protocol: String!
+  borrower: String!
+  liquidator: String!
+  collateralAsset: String
+  debtAsset: String
+  repaidAssets: BigInt
+  seizedAssets: BigInt
+}
