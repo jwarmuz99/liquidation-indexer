@@ -53,6 +53,7 @@ type GeneralizedLiquidation {
   protocol: String!
   borrower: String!
   liquidator: String!
+  txHash: String!
   collateralAsset: String
   debtAsset: String
   repaidAssets: BigInt
