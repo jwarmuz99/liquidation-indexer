@@ -31,3 +31,17 @@ type EulerVaultProxy_Liquidate {
   repayAssets: BigInt!
   yieldBalance: BigInt!
 }
+
+type Morpho_Liquidate {
+  id: ID!
+  chainId: Int!
+  timestamp: BigInt!
+  id_bytes32: String!
+  caller: String!
+  borrower: String!
+  repaidAssets: BigInt!
+  repaidShares: BigInt!
+  seizedAssets: BigInt!
+  badDebtAssets: BigInt!
+  badDebtShares: BigInt!
+}

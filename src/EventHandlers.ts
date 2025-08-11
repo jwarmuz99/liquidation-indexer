@@ -8,6 +8,8 @@ import {
   EulerFactory_ProxyCreated,
   EulerVaultProxy,
   EulerVaultProxy_Liquidate,
+  Morpho,
+  Morpho_Liquidate,
 } from "generated";
 
 AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
@@ -58,4 +60,22 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
   };
 
   context.EulerVaultProxy_Liquidate.set(entity);
+});
+
+Morpho.Liquidate.handler(async ({ event, context }) => {
+  const entity: Morpho_Liquidate = {
+    id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
+    chainId: event.chainId,
+    timestamp: BigInt(event.block.timestamp),
+    id_bytes32: event.params.id,
+    caller: event.params.caller,
+    borrower: event.params.borrower,
+    repaidAssets: event.params.repaidAssets,
+    repaidShares: event.params.repaidShares,
+    seizedAssets: event.params.seizedAssets,
+    badDebtAssets: event.params.badDebtAssets,
+    badDebtShares: event.params.badDebtShares,
+  };
+
+  context.Morpho_Liquidate.set(entity);
 });
