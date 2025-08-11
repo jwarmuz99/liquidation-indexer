@@ -11,6 +11,7 @@ import {
   Morpho,
   Morpho_Liquidate,
   GeneralizedLiquidation,
+  LiquidationStats,
 } from "generated";
 
 AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
@@ -42,6 +43,32 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
     seizedAssets: event.params.liquidatedCollateralAmount,
   };
   context.GeneralizedLiquidation.set(generalized);
+
+  // Update per-chain stats
+  const perChainStatsId = `stats_${event.chainId}`;
+  const existingPerChain = await context.LiquidationStats.get(perChainStatsId);
+  const perChain: LiquidationStats = {
+    id: perChainStatsId,
+    chainId: event.chainId,
+    aaveCount: BigInt(existingPerChain?.aaveCount ?? 0n) + 1n,
+    eulerCount: BigInt(existingPerChain?.eulerCount ?? 0n),
+    morphoCount: BigInt(existingPerChain?.morphoCount ?? 0n),
+    totalCount: BigInt(existingPerChain?.totalCount ?? 0n) + 1n,
+  };
+  context.LiquidationStats.set(perChain);
+
+  // Update global stats
+  const globalId = `stats_global`;
+  const existingGlobal = await context.LiquidationStats.get(globalId);
+  const global: LiquidationStats = {
+    id: globalId,
+    chainId: undefined,
+    aaveCount: BigInt(existingGlobal?.aaveCount ?? 0n) + 1n,
+    eulerCount: BigInt(existingGlobal?.eulerCount ?? 0n),
+    morphoCount: BigInt(existingGlobal?.morphoCount ?? 0n),
+    totalCount: BigInt(existingGlobal?.totalCount ?? 0n) + 1n,
+  };
+  context.LiquidationStats.set(global);
 });
 
 EulerFactory.ProxyCreated.handler(async ({ event, context }) => {
@@ -84,11 +111,39 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     borrower: event.params.violator,
     liquidator: event.params.liquidator,
     collateralAsset: event.params.collateral,
-    debtAsset: null,
+    debtAsset: undefined,
     repaidAssets: event.params.repayAssets,
     seizedAssets: event.params.yieldBalance,
-  } as unknown as GeneralizedLiquidation; // allow null debtAsset
+  };
   context.GeneralizedLiquidation.set(generalized);
+
+  // Update per-chain stats
+  const perChainStatsId2 = `stats_${event.chainId}`;
+  const existingPerChain2 = await context.LiquidationStats.get(
+    perChainStatsId2
+  );
+  const perChain2: LiquidationStats = {
+    id: perChainStatsId2,
+    chainId: event.chainId,
+    aaveCount: BigInt(existingPerChain2?.aaveCount ?? 0n),
+    eulerCount: BigInt(existingPerChain2?.eulerCount ?? 0n) + 1n,
+    morphoCount: BigInt(existingPerChain2?.morphoCount ?? 0n),
+    totalCount: BigInt(existingPerChain2?.totalCount ?? 0n) + 1n,
+  };
+  context.LiquidationStats.set(perChain2);
+
+  // Update global stats
+  const globalId2 = `stats_global`;
+  const existingGlobal2 = await context.LiquidationStats.get(globalId2);
+  const global2: LiquidationStats = {
+    id: globalId2,
+    chainId: undefined,
+    aaveCount: BigInt(existingGlobal2?.aaveCount ?? 0n),
+    eulerCount: BigInt(existingGlobal2?.eulerCount ?? 0n) + 1n,
+    morphoCount: BigInt(existingGlobal2?.morphoCount ?? 0n),
+    totalCount: BigInt(existingGlobal2?.totalCount ?? 0n) + 1n,
+  };
+  context.LiquidationStats.set(global2);
 });
 
 Morpho.Liquidate.handler(async ({ event, context }) => {
@@ -115,10 +170,38 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
     protocol: "Morpho",
     borrower: event.params.borrower,
     liquidator: event.params.caller,
-    collateralAsset: null,
-    debtAsset: null,
+    collateralAsset: undefined,
+    debtAsset: undefined,
     repaidAssets: event.params.repaidAssets,
     seizedAssets: event.params.seizedAssets,
-  } as unknown as GeneralizedLiquidation; // allow nulls
+  };
   context.GeneralizedLiquidation.set(generalized);
+
+  // Update per-chain stats
+  const perChainStatsId3 = `stats_${event.chainId}`;
+  const existingPerChain3 = await context.LiquidationStats.get(
+    perChainStatsId3
+  );
+  const perChain3: LiquidationStats = {
+    id: perChainStatsId3,
+    chainId: event.chainId,
+    aaveCount: BigInt(existingPerChain3?.aaveCount ?? 0n),
+    eulerCount: BigInt(existingPerChain3?.eulerCount ?? 0n),
+    morphoCount: BigInt(existingPerChain3?.morphoCount ?? 0n) + 1n,
+    totalCount: BigInt(existingPerChain3?.totalCount ?? 0n) + 1n,
+  };
+  context.LiquidationStats.set(perChain3);
+
+  // Update global stats
+  const globalId3 = `stats_global`;
+  const existingGlobal3 = await context.LiquidationStats.get(globalId3);
+  const global3: LiquidationStats = {
+    id: globalId3,
+    chainId: undefined,
+    aaveCount: BigInt(existingGlobal3?.aaveCount ?? 0n),
+    eulerCount: BigInt(existingGlobal3?.eulerCount ?? 0n),
+    morphoCount: BigInt(existingGlobal3?.morphoCount ?? 0n) + 1n,
+    totalCount: BigInt(existingGlobal3?.totalCount ?? 0n) + 1n,
+  };
+  context.LiquidationStats.set(global3);
 });

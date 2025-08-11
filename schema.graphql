@@ -58,3 +58,12 @@ type GeneralizedLiquidation {
   repaidAssets: BigInt
   seizedAssets: BigInt
 }
+
+type LiquidationStats {
+  id: ID!
+  chainId: Int
+  aaveCount: BigInt!
+  eulerCount: BigInt!
+  morphoCount: BigInt!
+  totalCount: BigInt!
+}
