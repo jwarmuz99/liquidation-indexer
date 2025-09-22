@@ -49,7 +49,7 @@ type Morpho_Liquidate {
 type GeneralizedLiquidation {
   id: ID!
   chainId: Int!
-  timestamp: BigInt!
+  timestamp: BigInt! @index
   protocol: String!
   borrower: String!
   liquidator: String!
@@ -67,4 +67,17 @@ type LiquidationStats {
   eulerCount: BigInt!
   morphoCount: BigInt!
   totalCount: BigInt!
+}
+
+type LiquidatorData {
+  id: ID!
+  liquidator: String!
+  chainId: Int
+  aaveLiquidations: BigInt!
+  eulerLiquidations: BigInt!
+  morphoLiquidations: BigInt!
+  totalLiquidations: BigInt!
+  liquidations: [String!]!
+  firstLiquidationTimestamp: BigInt
+  lastLiquidationTimestamp: BigInt
 }

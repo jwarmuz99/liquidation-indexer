@@ -13,6 +13,7 @@ import {
   GeneralizedLiquidation,
   LiquidationStats,
 } from "generated";
+import { updateLiquidatorData } from "./helpers";
 
 AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
   const entity: AaveProxy_LiquidationCall = {
@@ -44,6 +45,16 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
     seizedAssets: event.params.liquidatedCollateralAmount,
   };
   context.GeneralizedLiquidation.set(generalized);
+
+  // Update liquidator data
+  await updateLiquidatorData(
+    context,
+    event.params.liquidator,
+    event.chainId,
+    "Aave",
+    generalized.id,
+    BigInt(event.block.timestamp)
+  );
 
   // Update per-chain stats
   const perChainStatsId = `stats_${event.chainId}`;
@@ -119,6 +130,16 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
   };
   context.GeneralizedLiquidation.set(generalized);
 
+  // Update liquidator data
+  await updateLiquidatorData(
+    context,
+    event.params.liquidator,
+    event.chainId,
+    "Euler",
+    generalized.id,
+    BigInt(event.block.timestamp)
+  );
+
   // Update per-chain stats
   const perChainStatsId2 = `stats_${event.chainId}`;
   const existingPerChain2 = await context.LiquidationStats.get(
@@ -179,6 +200,16 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
     seizedAssets: event.params.seizedAssets,
   };
   context.GeneralizedLiquidation.set(generalized);
+
+  // Update liquidator data
+  await updateLiquidatorData(
+    context,
+    event.params.caller,
+    event.chainId,
+    "Morpho",
+    generalized.id,
+    BigInt(event.block.timestamp)
+  );
 
   // Update per-chain stats
   const perChainStatsId3 = `stats_${event.chainId}`;
