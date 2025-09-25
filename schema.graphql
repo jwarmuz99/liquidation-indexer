@@ -32,6 +32,17 @@ type EulerVaultProxy_Liquidate {
   yieldBalance: BigInt!
 }
 
+type Morpho_CreateMarket {
+  id: ID!
+  chainId: Int!
+  timestamp: BigInt!
+  loanToken: String!
+  collateralToken: String!
+  oracle: String!
+  irm: String!
+  lltv: BigInt!
+}
+
 type Morpho_Liquidate {
   id: ID!
   chainId: Int!

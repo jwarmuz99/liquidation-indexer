@@ -13,6 +13,7 @@ import {
   GeneralizedLiquidation,
   LiquidationStats,
 } from "generated";
+import type { Morpho_CreateMarket as Morpho_CreateMarketEntity } from "generated/src/Types.gen";
 import { updateLiquidatorData } from "./helpers";
 
 AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
@@ -169,6 +170,21 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
   context.LiquidationStats.set(global2);
 });
 
+Morpho.CreateMarket.handler(async ({ event, context }) => {
+  const entity: Morpho_CreateMarketEntity = {
+    id: event.params.id,
+    chainId: event.chainId,
+    timestamp: BigInt(event.block.timestamp),
+    loanToken: event.params.marketParams[0],
+    collateralToken: event.params.marketParams[1],
+    oracle: event.params.marketParams[2],
+    irm: event.params.marketParams[3],
+    lltv: event.params.marketParams[4],
+  };
+
+  context.Morpho_CreateMarket.set(entity);
+});
+
 Morpho.Liquidate.handler(async ({ event, context }) => {
   const entity: Morpho_Liquidate = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
@@ -186,6 +202,12 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
 
   context.Morpho_Liquidate.set(entity);
 
+  // Look up the market information to get collateral and debt assets
+  const marketId = event.params.id;
+  const market = await context.Morpho_CreateMarket.get(marketId);
+  const collateralAsset = market?.collateralToken;
+  const debtAsset = market?.loanToken;
+
   const generalized: GeneralizedLiquidation = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     chainId: event.chainId,
@@ -194,8 +216,8 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
     borrower: event.params.borrower,
     liquidator: event.params.caller,
     txHash: event.transaction.hash,
-    collateralAsset: undefined,
-    debtAsset: undefined,
+    collateralAsset: collateralAsset,
+    debtAsset: debtAsset,
     repaidAssets: event.params.repaidAssets,
     seizedAssets: event.params.seizedAssets,
   };
