@@ -124,7 +124,7 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     liquidator: event.params.liquidator,
     txHash: event.transaction.hash,
     collateralAsset: event.params.collateral,
-    debtAsset: undefined,
+    debtAsset: event.srcAddress,
     repaidAssets: event.params.repayAssets,
     seizedAssets: event.params.yieldBalance,
   };
