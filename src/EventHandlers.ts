@@ -15,6 +15,7 @@ import {
 } from "generated";
 import type { Morpho_CreateMarket as Morpho_CreateMarketEntity } from "generated/src/Types.gen";
 import { updateLiquidatorData } from "./helpers";
+import { getVaultAsset } from "./evaultMetadata";
 
 AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
   const entity: AaveProxy_LiquidationCall = {
@@ -85,11 +86,27 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
 });
 
 EulerFactory.ProxyCreated.handler(async ({ event, context }) => {
+  let asset: string;
+  // Fetch and store token0 information
+  try {
+    asset = await context.effect(getVaultAsset, {
+      vaultAddress: event.params.proxy,
+      chainId: event.chainId,
+    });
+  } catch (error) {
+    context.log.error("Failed to fetch EVault asset metadata", {
+      vaultAddress: event.params.proxy,
+      chainId: event.chainId,
+      err: error,
+    });
+    return;
+  }
+
   const entity: EulerFactory_ProxyCreated = {
-    id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
+    id: event.params.proxy,
     chainId: event.chainId,
     timestamp: BigInt(event.block.timestamp),
-    proxy: event.params.proxy,
+    asset: asset,
     upgradeable: event.params.upgradeable,
     implementation: event.params.implementation,
     trailingData: event.params.trailingData,
@@ -116,6 +133,11 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
 
   context.EulerVaultProxy_Liquidate.set(entity);
 
+  const collateralVault = await context.EulerFactory_ProxyCreated.get(event.params.collateral);
+  const debtVault = await context.EulerFactory_ProxyCreated.get(event.srcAddress);
+  const collateralAsset = collateralVault?.asset;
+  const debtAsset = debtVault?.asset;
+
   const generalized: GeneralizedLiquidation = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     chainId: event.chainId,
@@ -124,8 +146,8 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     borrower: event.params.violator,
     liquidator: event.params.liquidator,
     txHash: event.transaction.hash,
-    collateralAsset: event.params.collateral,
-    debtAsset: event.srcAddress,
+    collateralAsset: collateralAsset,
+    debtAsset: debtAsset,
     repaidAssets: event.params.repayAssets,
     seizedAssets: event.params.yieldBalance,
   };

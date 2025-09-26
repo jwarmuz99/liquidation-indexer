@@ -15,7 +15,7 @@ type EulerFactory_ProxyCreated {
   id: ID!
   chainId: Int!
   timestamp: BigInt!
-  proxy: String!
+  asset: String!
   upgradeable: Boolean!
   implementation: String!
   trailingData: String!
