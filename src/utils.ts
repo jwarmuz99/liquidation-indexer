@@ -2,8 +2,14 @@ import { Address, erc20Abi, erc20Abi_bytes32 } from "viem";
 import { mainnet, optimism, arbitrum, polygon, base, gnosis, linea, scroll, avalanche, bsc } from 'viem/chains'
 import * as fs from "fs";
 import * as path from "path";
+
+
 const evaultAbi = JSON.parse(
     fs.readFileSync(path.join(__dirname, "../abis/EVault.json"), "utf8")
+);
+
+const eulerRouterAbi = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "../abis/EulerRouter.json"), "utf8")
 );
 
 export function getERC20Contract(address: Address) {
@@ -19,6 +25,10 @@ export function getERC20BytesContract(address: Address) {
 
 export function getEVaultContract(address: Address) {
     return { address: address as `0x${string}`, abi: evaultAbi };
+}
+
+export function getEulerRouterContract(address: Address) {
+    return { address: address as `0x${string}`, abi: eulerRouterAbi };
 }
 
 export const getRPCUrl = (chainId: number) => {

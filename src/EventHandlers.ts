@@ -17,6 +17,7 @@ import type { Morpho_CreateMarket as Morpho_CreateMarketEntity } from "generated
 import { updateLiquidatorData } from "./helpers";
 import { getEVaultMetadata } from "./evaultMetadata";
 import { getTokenDetails } from "./tokenDetails";
+import { getQuote } from "./evaultOracle";
 
 AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
   const entity: AaveProxy_LiquidationCall = {
@@ -108,7 +109,9 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
     collateralAsset: collateralSymbol,
     debtAsset: debtSymbol,
     repaidAssets: event.params.debtToCover,
+    repaidAssetsUSD: 0,
     seizedAssets: event.params.liquidatedCollateralAmount,
+    seizedAssetsUSD: 0,
   };
   context.GeneralizedLiquidation.set(generalized);
 
@@ -244,30 +247,44 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     });
     return;
   }
+  const yieldBalanceUSD = await context.effect(getQuote, {
+    oracle: collateralVault.oracle,
+    inAmount: event.params.yieldBalance,
+    base: collateralVault.asset,
+    quote: collateralVault.unitOfAccount,
+    chainId: event.chainId,
+    blockNumber: BigInt(event.block.number),
+  });
 
-  const collateralAsset = collateralVault.asset;
-  const debtAsset = debtVault.asset;
+  const repayAssetsUSD = await context.effect(getQuote, {
+    oracle: debtVault.oracle,
+    inAmount: event.params.repayAssets,
+    base: debtVault.asset,
+    quote: debtVault.unitOfAccount,
+    chainId: event.chainId,
+    blockNumber: BigInt(event.block.number),
+  });
 
-  const collateralToken = await context.Token.get(collateralAsset);
+  const collateralToken = await context.Token.get(collateralVault.asset);
   if (!collateralToken) {
     context.log.error("Collateral token not loaded", {
-      tokenAddress: collateralAsset,
+      tokenAddress: collateralVault.asset,
       chainId: event.chainId,
     });
     return;
   }
 
-  const debtToken = await context.Token.get(debtAsset);
+  const debtToken = await context.Token.get(debtVault.asset);
   if (!debtToken) {
     context.log.error("Debt token not loaded", {
-      tokenAddress: debtAsset,
+      tokenAddress: debtVault.asset,
       chainId: event.chainId,
     });
     return;
   }
 
-  const collateralSymbol = collateralToken.symbol || collateralAsset;
-  const debtSymbol = debtToken.symbol || debtAsset;
+  const collateralSymbol = collateralToken.symbol || collateralVault.asset;
+  const debtSymbol = debtToken.symbol || debtVault.asset;
 
   const generalized: GeneralizedLiquidation = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
@@ -279,8 +296,10 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     txHash: event.transaction.hash,
     collateralAsset: collateralSymbol,
     debtAsset: debtSymbol,
-    repaidAssets: event.params.repayAssets,
-    seizedAssets: event.params.yieldBalance,
+    repaidAssets: BigInt(event.params.repayAssets),
+    repaidAssetsUSD: Number(repayAssetsUSD.price) / 1e18,
+    seizedAssets: BigInt(event.params.yieldBalance),
+    seizedAssetsUSD: Number(yieldBalanceUSD.price) / 1e18,
   };
   context.GeneralizedLiquidation.set(generalized);
 
@@ -457,7 +476,9 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
     collateralAsset: collateralSymbol,
     debtAsset: debtSymbol,
     repaidAssets: event.params.repaidAssets,
+    repaidAssetsUSD: 0,
     seizedAssets: event.params.seizedAssets,
+    seizedAssetsUSD: 0,
   };
   context.GeneralizedLiquidation.set(generalized);
 

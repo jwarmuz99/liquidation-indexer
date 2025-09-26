@@ -70,7 +70,9 @@ type GeneralizedLiquidation {
   collateralAsset: String
   debtAsset: String
   repaidAssets: BigInt
+  repaidAssetsUSD: Float
   seizedAssets: BigInt
+  seizedAssetsUSD: Float
 }
 
 type LiquidationStats {

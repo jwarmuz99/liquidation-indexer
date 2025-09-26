@@ -25,7 +25,7 @@ export const getEVaultMetadata = experimental_createEffect(
     },
     output: EVaultMetadataSchema,
     // Enable caching to avoid duplicated calls
-    cache: true,
+    cache: false,
   },
   async ({ input }) => {
     const { vaultAddress, chainId } = input
@@ -38,7 +38,7 @@ export const getEVaultMetadata = experimental_createEffect(
     const client = createPublicClient({
       chain: chain,
       batch: { multicall: true },
-      transport: http(RPC_URL, { batch: true })
+      transport: http(RPC_URL, { batch: true }),
     })
 
     const evault = getEVaultContract(vaultAddress as `0x${string}`)
@@ -47,6 +47,7 @@ export const getEVaultMetadata = experimental_createEffect(
     try {
       results = await client.multicall({
         allowFailure: false,
+        // blockNumber: blockNumber,
         contracts: [
           {
             ...evault,
