@@ -24,6 +24,7 @@ contracts:
   - name: Morpho
     handler: src/EventHandlers.ts
     events:
+      - event: CreateMarket(bytes32 indexed id, (address,address,address,address,uint256) marketParams)
       - event: Liquidate(bytes32 indexed id, address indexed caller, address indexed borrower, uint256 repaidAssets, uint256 repaidShares, uint256 seizedAssets, uint256 badDebtAssets, uint256 badDebtShares)
         field_selection:
           transaction_fields:
