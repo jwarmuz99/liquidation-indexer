@@ -92,3 +92,11 @@ type LiquidatorData {
   firstLiquidationTimestamp: BigInt
   lastLiquidationTimestamp: BigInt
 }
+
+type Token {
+  id: ID!
+  chainId: Int!
+  name: String!
+  symbol: String!
+  decimals: Int!
+}
