@@ -11,14 +11,16 @@ type AaveProxy_LiquidationCall {
   receiveAToken: Boolean!
 }
 
-type EulerFactory_ProxyCreated {
+type EVaultDetails {
   id: ID!
   chainId: Int!
   timestamp: BigInt!
   asset: String!
-  upgradeable: Boolean!
-  implementation: String!
-  trailingData: String!
+  name: String!
+  symbol: String!
+  oracle: String!
+  unitOfAccount: String!
+  decimals: Int!
 }
 
 type EulerVaultProxy_Liquidate {

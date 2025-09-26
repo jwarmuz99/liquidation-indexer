@@ -5,7 +5,7 @@ import {
   AaveProxy,
   AaveProxy_LiquidationCall,
   EulerFactory,
-  EulerFactory_ProxyCreated,
+  EVaultDetails,
   EulerVaultProxy,
   EulerVaultProxy_Liquidate,
   Morpho,
@@ -15,7 +15,7 @@ import {
 } from "generated";
 import type { Morpho_CreateMarket as Morpho_CreateMarketEntity } from "generated/src/Types.gen";
 import { updateLiquidatorData } from "./helpers";
-import { getVaultAsset } from "./evaultMetadata";
+import { getEVaultMetadata } from "./evaultMetadata";
 import { getTokenDetails } from "./tokenDetails";
 
 AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
@@ -150,12 +150,50 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
 });
 
 EulerFactory.ProxyCreated.handler(async ({ event, context }) => {
-  let asset: string;
   try {
-    asset = await context.effect(getVaultAsset, {
+    const evaultMetadata = await context.effect(getEVaultMetadata, {
       vaultAddress: event.params.proxy,
       chainId: event.chainId,
     });
+    const entity: EVaultDetails = {
+      id: event.params.proxy,
+      chainId: event.chainId,
+      timestamp: BigInt(event.block.timestamp),
+      asset: evaultMetadata.asset,
+      name: evaultMetadata.name,
+      symbol: evaultMetadata.symbol,
+      oracle: evaultMetadata.oracle,
+      unitOfAccount: evaultMetadata.unitOfAccount,
+      decimals: evaultMetadata.decimals,
+    };
+    context.EVaultDetails.set(entity);
+    if (evaultMetadata.asset) {
+      try {
+        const tokenMetadata = await context.effect(getTokenDetails, {
+          tokenAddress: evaultMetadata.asset,
+          chainId: event.chainId,
+        });
+        context.Token.set({
+          id: evaultMetadata.asset,
+          chainId: event.chainId,
+          name: tokenMetadata.name,
+          symbol: tokenMetadata.symbol,
+          decimals: tokenMetadata.decimals,
+        });
+      } catch (error) {
+        context.log.error(`Failed to fetch Euler token metadata ${evaultMetadata.asset}`, {
+          tokenAddress: evaultMetadata.asset,
+          chainId: event.chainId,
+          err: error,
+        });
+        return;
+      }
+    } else {
+      context.log.error(`Failed to fetch EVault asset metadata ${event.params.proxy}`, {
+        vaultAddress: event.params.proxy,
+        chainId: event.chainId,
+      });
+    }
   } catch (error) {
     context.log.error(`Failed to fetch EVault asset metadata ${event.params.proxy}`, {
       vaultAddress: event.params.proxy,
@@ -165,40 +203,6 @@ EulerFactory.ProxyCreated.handler(async ({ event, context }) => {
     return;
   }
 
-  if (asset) {
-    try {
-      const tokenMetadata = await context.effect(getTokenDetails, {
-        tokenAddress: asset,
-        chainId: event.chainId,
-      });
-      context.Token.set({
-        id: asset,
-        chainId: event.chainId,
-        name: tokenMetadata.name,
-        symbol: tokenMetadata.symbol,
-        decimals: tokenMetadata.decimals,
-      });
-    } catch (error) {
-      context.log.error(`Failed to fetch Euler token metadata ${asset}`, {
-        tokenAddress: asset,
-        chainId: event.chainId,
-        err: error,
-      });
-        return;
-      }
-  }
-
-  const entity: EulerFactory_ProxyCreated = {
-    id: event.params.proxy,
-    chainId: event.chainId,
-    timestamp: BigInt(event.block.timestamp),
-    asset: asset,
-    upgradeable: event.params.upgradeable,
-    implementation: event.params.implementation,
-    trailingData: event.params.trailingData,
-  };
-
-  context.EulerFactory_ProxyCreated.set(entity);
 });
 
 EulerFactory.ProxyCreated.contractRegister(async ({ event, context }) => {
@@ -223,7 +227,7 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     return;
   }
 
-  const collateralVault = await context.EulerFactory_ProxyCreated.get(event.params.collateral);
+  const collateralVault = await context.EVaultDetails.get(event.params.collateral);
   if (!collateralVault?.asset) {
     context.log.error("Missing collateral vault metadata", {
       collateralVault: event.params.collateral,
@@ -232,7 +236,7 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     return;
   }
 
-  const debtVault = await context.EulerFactory_ProxyCreated.get(event.srcAddress);
+  const debtVault = await context.EVaultDetails.get(event.srcAddress);
   if (!debtVault?.asset) {
     context.log.error("Missing debt vault metadata", {
       vaultAddress: event.srcAddress,
