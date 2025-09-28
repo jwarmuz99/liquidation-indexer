@@ -18,6 +18,9 @@ import { updateLiquidatorData } from "./helpers";
 import { getEVaultMetadata } from "./evaultMetadata";
 import { getTokenDetails } from "./tokenDetails";
 import { getQuote } from "./evaultOracle";
+import { getAssetPrice } from "./aaveOracle";
+import { getAaveV3ReserveData } from "./aaveMetadata";
+import { getAaveV3OracleAddress } from "./utils";
 
 AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
   const entity: AaveProxy_LiquidationCall = {
@@ -98,6 +101,94 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
   const collateralSymbol = collateralToken.symbol || event.params.collateralAsset;
   const debtSymbol = debtToken.symbol || event.params.debtAsset;
 
+  let collateralMarketDetails: any;
+  let debtMarketDetails: any;
+
+  try {
+    collateralMarketDetails = await context.effect(getAaveV3ReserveData, {
+      tokenAddress: event.params.collateralAsset,
+      chainId: event.chainId,
+      blockNumber: BigInt(event.block.number),
+    });
+    if (collateralMarketDetails) {
+      context.AaveV3ReserveConfigurationData.set({
+        id: event.params.collateralAsset,
+        chainId: event.chainId,
+        decimals: collateralMarketDetails.decimals,
+        ltv: collateralMarketDetails.ltv,
+        cf: collateralMarketDetails.cf,
+        liq_inc: collateralMarketDetails.liq_inc,
+        reserve_factor: collateralMarketDetails.reserve_factor,
+      });
+    }
+  } catch (error) {
+    context.log.warn(`Failed to fetch Aave V3 reserve data for collateral ${event.params.collateralAsset} on chain ${event.chainId}, continuing without it`, {
+      tokenAddress: event.params.collateralAsset,
+      chainId: event.chainId,
+      err: error,
+    });
+    // Don't return here - we can still process the liquidation without the reserve data
+  }
+
+  try {
+    debtMarketDetails = await context.effect(getAaveV3ReserveData, {
+      tokenAddress: event.params.debtAsset,
+      chainId: event.chainId,
+      blockNumber: BigInt(event.block.number),
+    });
+    if (debtMarketDetails) {
+      context.AaveV3ReserveConfigurationData.set({
+        id: event.params.debtAsset,
+        chainId: event.chainId,
+        decimals: debtMarketDetails.decimals,
+        ltv: debtMarketDetails.ltv,
+        cf: debtMarketDetails.cf,
+        liq_inc: debtMarketDetails.liq_inc,
+        reserve_factor: debtMarketDetails.reserve_factor,
+      });
+    }
+  } catch (error) {
+    context.log.warn(`Failed to fetch Aave V3 reserve data for debt ${event.params.debtAsset} on chain ${event.chainId}, continuing without it`, {
+      tokenAddress: event.params.debtAsset,
+      chainId: event.chainId,
+      err: error,
+    });
+    // Don't return here - we can still process the liquidation without the reserve data
+  }
+
+  // Only fetch prices if we have oracle addresses from reserve data
+  let collateralPrice = { price: 0n };
+  let debtPrice = { price: 0n };
+
+  try {
+    collateralPrice = await context.effect(getAssetPrice, {
+      assetAddress: event.params.collateralAsset,
+      chainId: event.chainId,
+      blockNumber: BigInt(event.block.number),
+    });
+  } catch (error) {
+    context.log.warn(`Failed to fetch collateral price, using 0`, {
+      tokenAddress: event.params.collateralAsset,
+      err: error,
+    });
+  }
+
+  try {
+    debtPrice = await context.effect(getAssetPrice, {
+      assetAddress: event.params.debtAsset,
+      chainId: event.chainId,
+      blockNumber: BigInt(event.block.number),
+    });
+  } catch (error) {
+    context.log.warn(`Failed to fetch debt price, using 0`, {
+      tokenAddress: event.params.debtAsset,
+      err: error,
+    });
+  }
+
+  const seizedAssetsUSD = (Number(event.params.liquidatedCollateralAmount) / (10**collateralToken.decimals)) * (Number(collateralPrice.price) / (10**8));
+  const repaidAssetsUSD = (Number(event.params.debtToCover) / (10**debtToken.decimals)) * (Number(debtPrice.price) / (10**8));
+
   const generalized: GeneralizedLiquidation = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     chainId: event.chainId,
@@ -109,9 +200,9 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
     collateralAsset: collateralSymbol,
     debtAsset: debtSymbol,
     repaidAssets: event.params.debtToCover,
-    repaidAssetsUSD: 0,
+    repaidAssetsUSD: repaidAssetsUSD,
     seizedAssets: event.params.liquidatedCollateralAmount,
-    seizedAssetsUSD: 0,
+    seizedAssetsUSD:seizedAssetsUSD,
   };
   context.GeneralizedLiquidation.set(generalized);
 
@@ -249,7 +340,7 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
   }
   const yieldBalanceUSD = await context.effect(getQuote, {
     oracle: collateralVault.oracle,
-    inAmount: event.params.yieldBalance,
+    inAmount: BigInt(event.params.yieldBalance),
     base: collateralVault.asset,
     quote: collateralVault.unitOfAccount,
     chainId: event.chainId,
@@ -258,7 +349,7 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
 
   const repayAssetsUSD = await context.effect(getQuote, {
     oracle: debtVault.oracle,
-    inAmount: event.params.repayAssets,
+    inAmount: BigInt(event.params.repayAssets),
     base: debtVault.asset,
     quote: debtVault.unitOfAccount,
     chainId: event.chainId,

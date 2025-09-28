@@ -104,3 +104,13 @@ type Token {
   symbol: String!
   decimals: Int!
 }
+
+type AaveV3ReserveConfigurationData {
+  id: ID!
+  chainId: Int!
+  decimals: Int
+  ltv: BigInt
+  cf: BigInt
+  liq_inc: BigInt
+  reserve_factor: BigInt
+}

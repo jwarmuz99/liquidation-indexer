@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@bgd-labs/aave-address-book':
+        specifier: ^4.31.0
+        version: 4.31.0(viem@2.37.8(typescript@5.2.2))
       envio:
         specifier: 2.29.1
         version: 2.29.1(typescript@5.2.2)
@@ -48,6 +51,11 @@ packages:
 
   '@adraffy/ens-normalize@1.11.1':
     resolution: {integrity: sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ==}
+
+  '@bgd-labs/aave-address-book@4.31.0':
+    resolution: {integrity: sha512-NO/Te4ZgZ6q9h2gT6M+L1UpyJHRBCgI8fql+dvw5pnhfGofBINO1WQsCzvqO5E7Vy1P5zMDKMi2mNCIctZUQUw==}
+    peerDependencies:
+      viem: ^2.23.5
 
   '@elastic/ecs-helpers@1.1.0':
     resolution: {integrity: sha512-MDLb2aFeGjg46O5mLpdCzT5yOUDnXToJSrco2ShqGIXxNJaM8uJjX+4nd+hRYV4Vex8YJyDtOFEVBldQct6ndg==}
@@ -884,6 +892,10 @@ snapshots:
   '@adraffy/ens-normalize@1.10.0': {}
 
   '@adraffy/ens-normalize@1.11.1': {}
+
+  '@bgd-labs/aave-address-book@4.31.0(viem@2.37.8(typescript@5.2.2))':
+    dependencies:
+      viem: 2.37.8(typescript@5.2.2)
 
   '@elastic/ecs-helpers@1.1.0':
     dependencies:

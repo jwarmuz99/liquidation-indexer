@@ -47,7 +47,6 @@ export const getEVaultMetadata = experimental_createEffect(
     try {
       results = await client.multicall({
         allowFailure: false,
-        // blockNumber: blockNumber,
         contracts: [
           {
             ...evault,
