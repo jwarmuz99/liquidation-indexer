@@ -19,6 +19,7 @@ import { getEVaultMetadata } from "./evaultMetadata";
 import { getTokenDetails } from "./tokenDetails";
 import { getQuote } from "./evaultOracle";
 import { getAssetPrice } from "./aaveOracle";
+import { getMorphoHistoricalPrice } from "./morphoOracle";
 import { getAaveV3ReserveData } from "./aaveMetadata";
 import { getAaveV3OracleAddress } from "./utils";
 
@@ -556,6 +557,46 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
   const collateralSymbol = collateralToken.symbol || collateralAsset;
   const debtSymbol = debtToken.symbol || debtAsset;
 
+  const collateralDecimals = collateralToken.decimals || 18;
+  const debtDecimals = debtToken.decimals || 18;
+
+  // Fetch historical prices from Morpho API for USD calculations
+  let collateralPrice = { price: 0 };
+  let debtPrice = { price: 0 };
+
+  try {
+    collateralPrice = await context.effect(getMorphoHistoricalPrice, {
+      assetAddress: collateralAsset,
+      chainId: event.chainId,
+      timestamp: BigInt(event.block.timestamp),
+    });
+  } catch (error) {
+    context.log.warn(`Failed to fetch Morpho collateral price, using 0`, {
+      tokenAddress: collateralAsset,
+      chainId: event.chainId,
+      err: error,
+    });
+  }
+
+  try {
+    debtPrice = await context.effect(getMorphoHistoricalPrice, {
+      assetAddress: debtAsset,
+      chainId: event.chainId,
+      timestamp: BigInt(event.block.timestamp),
+    });
+  } catch (error) {
+    context.log.warn(`Failed to fetch Morpho debt price, using 0`, {
+      tokenAddress: debtAsset,
+      chainId: event.chainId,
+      err: error,
+    });
+  }
+  console.log("collateralPrice", collateralPrice);
+  console.log("debtPrice", debtPrice);
+
+  const seizedAssetsUSD = (Number(event.params.seizedAssets) / (10 ** collateralDecimals)) * Number(collateralPrice.price);
+  const repaidAssetsUSD = (Number(event.params.repaidAssets) / (10 ** debtDecimals)) * Number(debtPrice.price);
+
   const generalized: GeneralizedLiquidation = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     chainId: event.chainId,
@@ -567,9 +608,9 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
     collateralAsset: collateralSymbol,
     debtAsset: debtSymbol,
     repaidAssets: event.params.repaidAssets,
-    repaidAssetsUSD: 0,
+    repaidAssetsUSD: repaidAssetsUSD,
     seizedAssets: event.params.seizedAssets,
-    seizedAssetsUSD: 0,
+    seizedAssetsUSD: seizedAssetsUSD,
   };
   context.GeneralizedLiquidation.set(generalized);
 
