@@ -40,7 +40,7 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
       chainId: event.chainId,
     });
     context.Token.set({
-      id: event.params.collateralAsset,
+      id: `${event.chainId}_${event.params.collateralAsset}`,
       chainId: event.chainId,
       name: collateralTokenMetadata.name,
       symbol: collateralTokenMetadata.symbol,
@@ -61,7 +61,7 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
       chainId: event.chainId,
     });
     context.Token.set({
-      id: event.params.debtAsset,
+      id: `${event.chainId}_${event.params.debtAsset}`,
       chainId: event.chainId,
       name: debtTokenMetadata.name,
       symbol: debtTokenMetadata.symbol,
@@ -76,7 +76,7 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
     return;
   }
 
-  const collateralToken = await context.Token.get(event.params.collateralAsset);
+  const collateralToken = await context.Token.get(`${event.chainId}_${event.params.collateralAsset}`);
   if (!collateralToken) {
     context.log.error("Collateral token entity not preloaded", {
       tokenAddress: event.params.collateralAsset,
@@ -85,7 +85,7 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
     return;
   }
 
-  const debtToken = await context.Token.get(event.params.debtAsset);
+  const debtToken = await context.Token.get(`${event.chainId}_${event.params.debtAsset}`);
   if (!debtToken) {
     context.log.error("Debt token entity not preloaded", {
       tokenAddress: event.params.debtAsset,
@@ -172,7 +172,7 @@ EulerFactory.ProxyCreated.handler(async ({ event, context }) => {
         chainId: event.chainId,
       });
       context.Token.set({
-        id: asset,
+        id: `${event.chainId}_${asset}`,
         chainId: event.chainId,
         name: tokenMetadata.name,
         symbol: tokenMetadata.symbol,
@@ -223,7 +223,7 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     return;
   }
 
-  const collateralVault = await context.EulerFactory_ProxyCreated.get(event.params.collateral);
+  const collateralVault = await context.EulerFactory_ProxyCreated.get(`${event.chainId}_${event.params.collateral}`);
   if (!collateralVault?.asset) {
     context.log.error("Missing collateral vault metadata", {
       collateralVault: event.params.collateral,
@@ -232,7 +232,7 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     return;
   }
 
-  const debtVault = await context.EulerFactory_ProxyCreated.get(event.srcAddress);
+  const debtVault = await context.EulerFactory_ProxyCreated.get(`${event.chainId}_${event.srcAddress}`);
   if (!debtVault?.asset) {
     context.log.error("Missing debt vault metadata", {
       vaultAddress: event.srcAddress,
@@ -244,7 +244,7 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
   const collateralAsset = collateralVault.asset;
   const debtAsset = debtVault.asset;
 
-  const collateralToken = await context.Token.get(collateralAsset);
+  const collateralToken = await context.Token.get(`${event.chainId}_${collateralAsset}`);
   if (!collateralToken) {
     context.log.error("Collateral token not loaded", {
       tokenAddress: collateralAsset,
@@ -253,7 +253,7 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     return;
   }
 
-  const debtToken = await context.Token.get(debtAsset);
+  const debtToken = await context.Token.get(`${event.chainId}_${debtAsset}`);
   if (!debtToken) {
     context.log.error("Debt token not loaded", {
       tokenAddress: debtAsset,
@@ -337,7 +337,7 @@ Morpho.CreateMarket.handler(async ({ event, context }) => {
       chainId: event.chainId,
     });
     context.Token.set({
-      id: event.params.marketParams[0],
+      id: `${event.chainId}_${event.params.marketParams[0]}`,
       chainId: event.chainId,
       name: loanTokenMetadata.name,
       symbol: loanTokenMetadata.symbol,
@@ -358,7 +358,7 @@ Morpho.CreateMarket.handler(async ({ event, context }) => {
       chainId: event.chainId,
     });
     context.Token.set({
-      id: event.params.marketParams[1],
+      id: `${event.chainId}_${event.params.marketParams[1]}`,
       chainId: event.chainId,
       name: collateralTokenMetadata.name,
       symbol: collateralTokenMetadata.symbol,
@@ -421,7 +421,7 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
     return;
   }
 
-  const collateralToken = await context.Token.get(collateralAsset);
+  const collateralToken = await context.Token.get(`${event.chainId}_${collateralAsset}`);
   if (!collateralToken) {
     context.log.error("Collateral token not loaded", {
       tokenAddress: collateralAsset,
@@ -430,7 +430,7 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
     return;
   }
 
-  const debtToken = await context.Token.get(debtAsset);
+  const debtToken = await context.Token.get(`${event.chainId}_${debtAsset}`);
   if (!debtToken) {
     context.log.error("Debt token not loaded", {
       tokenAddress: debtAsset,
