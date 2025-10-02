@@ -21,6 +21,10 @@ const aaveUiPoolDataProviderAbi = JSON.parse(
     fs.readFileSync(path.join(__dirname, "../abis/AaveUiPoolDataProvider.json"), "utf8")
 );
 
+const aaveV3ProtocolDataProviderAbi = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "../abis/AaveV3ProtocolDataProvider.json"), "utf8")
+);
+
 export function getERC20Contract(address: Address) {
     return { address: address as `0x${string}`, abi: erc20Abi };
 }
@@ -46,6 +50,10 @@ export function getAaveV3OracleContract(address: Address) {
 
 export function getAaveUiPoolDataProviderContract(address: Address) {
     return { address: address as `0x${string}`, abi: aaveUiPoolDataProviderAbi };
+}
+
+export function getAaveV3ProtocolDataProviderContract(address: Address) {
+    return { address: address as `0x${string}`, abi: aaveV3ProtocolDataProviderAbi };
 }
 
 export const getRPCUrl = (chainId: number) => {
@@ -101,15 +109,15 @@ export const getAaveV3UiPoolDataProviderAddress = (chainId: number) => {
 
 export const getAaveV3PoolAddressesProviderAddress = (chainId: number) => {
     const chainMap: Record<number, string> = {
-        1: AaveV3Ethereum.POOL_ADDRESSES_PROVIDER,
-        10: AaveV3Optimism.POOL_ADDRESSES_PROVIDER,
-        42161: AaveV3Arbitrum.POOL_ADDRESSES_PROVIDER,
-        137: AaveV3Polygon.POOL_ADDRESSES_PROVIDER,
-        8453: AaveV3Base.POOL_ADDRESSES_PROVIDER,
+        1: AaveV3Ethereum.POOL_ADDRESSES_PROVIDER, // 
+        10: AaveV3Optimism.POOL_ADDRESSES_PROVIDER, // 
+        42161: AaveV3Arbitrum.POOL_ADDRESSES_PROVIDER, // 
+        137: AaveV3Polygon.POOL_ADDRESSES_PROVIDER, // 
+        8453: AaveV3Base.POOL_ADDRESSES_PROVIDER, // 
         100: AaveV3Gnosis.POOL_ADDRESSES_PROVIDER,
         59144: AaveV3Linea.POOL_ADDRESSES_PROVIDER,
         534352: AaveV3Scroll.POOL_ADDRESSES_PROVIDER,
-        43114: AaveV3Avalanche.POOL_ADDRESSES_PROVIDER,
+        43114: AaveV3Avalanche.POOL_ADDRESSES_PROVIDER, // 
         56: AaveV3BNB.POOL_ADDRESSES_PROVIDER,
     };
     const address = chainMap[chainId] || "";
@@ -128,6 +136,23 @@ export const getAaveV3OracleAddress = (chainId: number) => {
         534352: AaveV3Scroll.ORACLE,
         43114: AaveV3Avalanche.ORACLE,
         56: AaveV3BNB.ORACLE,
+    };
+    const address = chainMap[chainId] || "";
+    return address;
+};
+
+export const getAaveV3ProtocolDataProviderAddress = (chainId: number) => {
+    const chainMap: Record<number, string> = {
+        1: "0x7B4EB56E7CD4b454BA8ff71E4518426369a138a3",
+        10: "0x7F23D86Ee20D869112572136221e173428DD740B",
+        42161: "0x7F23D86Ee20D869112572136221e173428DD740B",
+        137: "0x7F23D86Ee20D869112572136221e173428DD740B",
+        8453: "0xd82a47fdebB5bf5329b09441C3DaB4b5df2153Ad",
+        100: "0x501B4c19dd9C2e06E94dA7b6D5Ed4ddA013EC741",
+        59144: "0x2D97F8FA96886Fd923c065F5457F9DDd494e3877",
+        534352: "0xa99F4E69acF23C6838DE90dD1B5c02EA928A53ee",
+        43114: "0x7F23D86Ee20D869112572136221e173428DD740B",
+        56: "0x41585C50524fb8c3899B43D7D797d9486AAc94DB",
     };
     const address = chainMap[chainId] || "";
     return address;

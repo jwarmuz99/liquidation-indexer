@@ -1,6 +1,14 @@
 import { createPublicClient, http } from "viem";
 import { experimental_createEffect, S } from "envio";
-import { getChain, getRPCUrl, getAaveUiPoolDataProviderContract, getAaveV3UiPoolDataProviderAddress, getAaveV3PoolAddressesProviderAddress } from "./utils";
+import { 
+  getChain, 
+  getRPCUrl, 
+  getAaveUiPoolDataProviderContract, 
+  getAaveV3UiPoolDataProviderAddress, 
+  getAaveV3PoolAddressesProviderAddress, 
+  getAaveV3ProtocolDataProviderAddress,
+  getAaveV3ProtocolDataProviderContract
+} from "./utils";
 
 // Define the schema for the effect output
 const getAaveV3ReserveDataSchema = S.schema({
@@ -32,16 +40,8 @@ export const getAaveV3ReserveData = experimental_createEffect(
     // Get the pool data provider address for this chain
     const poolDataProviderAddress = getAaveV3UiPoolDataProviderAddress(chainId);
 
-    if (!poolDataProviderAddress) {
-      throw new Error(`No UiPoolDataProvider address configured for chain ${chainId}`);
-    }
-
     // Get the pool addresses provider address for this chain
     const poolAddressesProviderAddress = getAaveV3PoolAddressesProviderAddress(chainId);
-
-    if (!poolAddressesProviderAddress) {
-      throw new Error(`No PoolAddressesProvider address configured for chain ${chainId}`);
-    }
 
     // Map chain IDs to RPC URLs for all configured chains
     const RPC_URL = getRPCUrl(chainId);
@@ -72,10 +72,6 @@ export const getAaveV3ReserveData = experimental_createEffect(
         (reserve: any) => reserve.underlyingAsset.toLowerCase() === tokenAddress.toLowerCase()
       );
 
-      if (!reserveData) {
-        throw new Error(`Reserve data not found for token ${tokenAddress} on chain ${chainId}`);
-      }
-
       // Convert LTV from basis points to actual value (LTV is in basis points, so divide by 10000)
       const decimals = Number(reserveData.decimals);
       const ltv = BigInt(reserveData.baseLTVasCollateral);
@@ -91,8 +87,44 @@ export const getAaveV3ReserveData = experimental_createEffect(
         reserve_factor,
       };
     } catch (error) {
-      console.error(`Failed to fetch Aave V3 reserve data for ${tokenAddress} on chain ${chainId}`, error);
-      throw error;
+      try {
+        const protocolDataProviderAddress = getAaveV3ProtocolDataProviderAddress(chainId);
+        const protocolDataProviderContract = getAaveV3ProtocolDataProviderContract(
+          protocolDataProviderAddress as `0x${string}`
+        );
+
+        const result = await client.readContract({
+          ...protocolDataProviderContract,
+          functionName: "getReserveConfigurationData",
+          args: [tokenAddress],
+          blockNumber: BigInt(blockNumber),
+        });
+
+        const [reservesData] = result as [any];
+        const decimals = Number(reservesData.decimals);
+        const ltv = BigInt(reservesData.ltv);
+        const cf = BigInt(reservesData.liquidationThreshold);
+        const liq_inc = BigInt(reservesData.liquidationBonus);
+        const reserve_factor = BigInt(reservesData.reserveFactor);
+
+        return {
+          decimals,
+          ltv,
+          cf,
+          liq_inc,
+          reserve_factor,
+        };
+
+      } catch (error) {
+        console.error(`Failed to fetch Aave V3 reserve data for ${tokenAddress} on chain ${chainId} at block ${blockNumber}`, error);
+        return {
+          decimals: 0,
+          ltv: 0n,
+          cf: 0n,
+          liq_inc: 0n,
+          reserve_factor: 0n,
+        };
+      }
     }
   }
 );
