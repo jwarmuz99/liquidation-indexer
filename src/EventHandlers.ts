@@ -296,7 +296,7 @@ EulerFactory.ProxyCreated.handler(async ({ event, context }) => {
     });
     return;
   }
-
+  
 });
 
 EulerFactory.ProxyCreated.contractRegister(async ({ event, context }) => {
