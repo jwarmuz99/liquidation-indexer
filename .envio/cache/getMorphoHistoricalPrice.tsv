@@ -15506,3 +15506,11 @@ id	output
 {"assetAddress":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","chainId":8453,"timestamp":"1759188823"}	{"price": 0.999608}
 {"assetAddress":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","chainId":8453,"timestamp":"1759308089"}	{"price": 0.999601}
 {"assetAddress":"0x4200000000000000000000000000000000000006","chainId":8453,"timestamp":"1759308089"}	{"price": 4284.14}
+{"assetAddress":"0x90D2af7d622ca3141efA4d8f1F24d86E5974Cc8F","chainId":1,"timestamp":"1759377143"}	{"price": 1.001}
+{"assetAddress":"0x4c9EDD5852cd905f086C759E8383e09bff1E68B3","chainId":1,"timestamp":"1759377143"}	{"price": 1.001}
+{"assetAddress":"0xCcE7D12f683c6dAe700154f0BAdf779C0bA1F89A","chainId":1,"timestamp":"1759471499"}	{"price": 0.9996999170858262}
+{"assetAddress":"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48","chainId":1,"timestamp":"1759471499"}	{"price": 0.9997013278548506}
+{"assetAddress":"0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452","chainId":8453,"timestamp":"1759371663"}	{"price": 5308.05}
+{"assetAddress":"0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42","chainId":8453,"timestamp":"1759371663"}	{"price": 1.17}
+{"assetAddress":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","chainId":8453,"timestamp":"1759423617"}	{"price": 0.9998065474745834}
+{"assetAddress":"0x4200000000000000000000000000000000000006","chainId":8453,"timestamp":"1759423617"}	{"price": 4457.052464009536}

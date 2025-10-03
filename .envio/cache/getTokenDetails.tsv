@@ -876,3 +876,11 @@ id	output
 {"chainId":43114,"tokenAddress":"0x39dE0f00189306062D79eDEC6DcA5bb6bFd108f9"}	{"name": "EVK Vault eUSDC-2", "symbol": "eUSDC-2", "decimals": 6}
 {"chainId":43114,"tokenAddress":"0x211Cc4DD073734dA055fbF44a2b4667d5E5fE5d2"}	{"name": "Staked USDe", "symbol": "sUSDe", "decimals": 18}
 {"chainId":43114,"tokenAddress":"0x7bFd4CA2a6Cf3A3fDDd645D10B323031afe47FF0"}	{"name": "rsETHWrapper", "symbol": "wrsETH", "decimals": 18}
+{"chainId":59144,"tokenAddress":"unknown"}	{"name": "unknown", "symbol": "unknown", "decimals": 0}
+{"chainId":1,"tokenAddress":"unknown"}	{"name": "unknown", "symbol": "unknown", "decimals": 0}
+{"chainId":43114,"tokenAddress":"unknown"}	{"name": "unknown", "symbol": "unknown", "decimals": 0}
+{"chainId":42161,"tokenAddress":"unknown"}	{"name": "unknown", "symbol": "unknown", "decimals": 0}
+{"chainId":8453,"tokenAddress":"unknown"}	{"name": "unknown", "symbol": "unknown", "decimals": 0}
+{"chainId":56,"tokenAddress":"unknown"}	{"name": "unknown", "symbol": "unknown", "decimals": 0}
+{"chainId":8453,"tokenAddress":"0x236aa50979D5f3De3Bd1Eeb40E81137F22ab794b"}	{"name": "Base tBTC v2", "symbol": "tBTC", "decimals": 18}
+{"chainId":8453,"tokenAddress":"0xe9f6D9898f9269B519E1435E6ebafF766c7f46BF"}	{"name": "vTAO", "symbol": "vTAO", "decimals": 18}
