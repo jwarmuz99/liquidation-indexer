@@ -14,7 +14,7 @@ import {
   LiquidationStats,
 } from "generated";
 import type { Morpho_CreateMarket as Morpho_CreateMarketEntity } from "generated/src/Types.gen";
-import { updateLiquidatorData } from "./helpers";
+import { updateLiquidatorData, updateBorrowerData } from "./helpers";
 import { getEVaultMetadata } from "./evaultMetadata";
 import { getTokenDetails } from "./tokenDetails";
 import { getQuote } from "./evaultOracle";
@@ -220,12 +220,21 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
     BigInt(event.block.timestamp)
   );
 
+  // Update borrower data to get the borrower ID
+  const borrowerId = await updateBorrowerData(
+    context,
+    event.params.user,
+    event.chainId,
+    "Aave",
+    BigInt(event.block.timestamp)
+  );
+
   const generalized: GeneralizedLiquidation = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     chainId: event.chainId,
     timestamp: BigInt(event.block.timestamp),
     protocol: "Aave",
-    borrower: event.params.user,
+    borrower_id: borrowerId,
     liquidator_id: liquidatorId,
     txHash: event.transaction.hash,
     collateralAsset: collateralSymbol,
@@ -423,12 +432,21 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     BigInt(event.block.timestamp)
   );
 
+  // Update borrower data to get the borrower ID
+  const borrowerId = await updateBorrowerData(
+    context,
+    event.params.violator,
+    event.chainId,
+    "Euler",
+    BigInt(event.block.timestamp)
+  );
+
   const generalized: GeneralizedLiquidation = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     chainId: event.chainId,
     timestamp: BigInt(event.block.timestamp),
     protocol: "Euler",
-    borrower: event.params.violator,
+    borrower_id: borrowerId,
     liquidator_id: liquidatorId,
     txHash: event.transaction.hash,
     collateralAsset: collateralSymbol,
@@ -651,12 +669,21 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
     BigInt(event.block.timestamp)
   );
 
+  // Update borrower data to get the borrower ID
+  const borrowerId = await updateBorrowerData(
+    context,
+    event.params.borrower,
+    event.chainId,
+    "Morpho",
+    BigInt(event.block.timestamp)
+  );
+
   const generalized: GeneralizedLiquidation = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     chainId: event.chainId,
     timestamp: BigInt(event.block.timestamp),
     protocol: "Morpho",
-    borrower: event.params.borrower,
+    borrower_id: borrowerId,
     liquidator_id: liquidatorId,
     txHash: event.transaction.hash,
     collateralAsset: collateralSymbol,
