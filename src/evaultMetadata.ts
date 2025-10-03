@@ -1,67 +1,106 @@
 import { createPublicClient, http } from "viem";
 import { experimental_createEffect, S } from "envio";
-import * as fs from "fs";
-import * as path from "path";
+import { getChain, getRPCUrl, getEVaultContract } from "./utils";
 
-// Load the EVault ABI
-const EVaultAbi = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "../abis/EVault.json"), "utf8")
-);
 
 // Define the schema for the effect output
-const vaultAssetSchema = S.string;
+const EVaultMetadataSchema = S.schema({
+  asset: S.string,
+  name: S.string,
+  symbol: S.string,
+  oracle: S.string,
+  unitOfAccount: S.string,
+  decimals: S.number,
+})
 
 // Infer the type from the schema
-type VaultAsset = S.Infer<typeof vaultAssetSchema>;
+type EVaultMetadata = S.Infer<typeof EVaultMetadataSchema>;
 
-export const getVaultAsset = experimental_createEffect(
+export const getEVaultMetadata = experimental_createEffect(
   {
-    name: "getVaultAsset",
+    name: "getEVaultMetadata",
     input: {
       vaultAddress: S.string,
       chainId: S.number,
     },
-    output: vaultAssetSchema,
+    output: EVaultMetadataSchema,
     // Enable caching to avoid duplicated calls
-    cache: true,
+    cache: false,
   },
-  async ({ input }: { input: { vaultAddress: string; chainId: number } }) => {
-    const { vaultAddress, chainId } = input;
+  async ({ input }) => {
+    const { vaultAddress, chainId } = input
 
     // Map chain IDs to RPC URLs for all configured chains
-    const rpcUrls: Record<number, string> = {
-      1: process.env.RPC_URL_1 || "https://eth-mainnet.public.blastapi.io",
-      10: process.env.RPC_URL_10 || "https://mainnet.optimism.io",
-      42161: process.env.RPC_URL_42161 || "https://arb1.arbitrum.io/rpc",
-      137: process.env.RPC_URL_137 || "https://polygon-rpc.com",
-      8453: process.env.RPC_URL_8453 || "https://mainnet.base.org",
-      100: process.env.RPC_URL_100 || "https://rpc.gnosischain.com",
-      59144: process.env.RPC_URL_59144 || "https://rpc.linea.build",
-      534352: process.env.RPC_URL_534352 || "https://rpc.scroll.io",
-      43114: process.env.RPC_URL_43114 || "https://api.avax.network/ext/bc/C/rpc",
-      56: process.env.RPC_URL_56 || "https://bsc-dataseed1.binance.org",
-    };
-
-    const RPC_URL = rpcUrls[chainId] || process.env.RPC_URL || "http://localhost:8545";
+    const chain = getChain(chainId)
+    const RPC_URL = getRPCUrl(chainId)
 
     // Create a public client for the specific chain
     const client = createPublicClient({
-      transport: http(RPC_URL),
-    });
+      chain: chain,
+      batch: { multicall: true },
+      transport: http(RPC_URL, { batch: true }),
+    })
 
+    const evault = getEVaultContract(vaultAddress as `0x${string}`)
+
+    let results: [string, string, string, string, string, number]
     try {
-      // Call the asset() function to get the underlying asset
-      const asset = await client.readContract({
-        address: vaultAddress as `0x${string}`,
-        abi: EVaultAbi,
-        functionName: "asset",
-        args: [],
-      });
-
-      return asset as string;
+      results = await client.multicall({
+        allowFailure: false,
+        contracts: [
+          {
+            ...evault,
+            functionName: "asset",
+            args: [],
+          },
+          {
+            ...evault,
+            functionName: "name",
+            args: [],
+          },
+          {
+            ...evault,
+            functionName: "symbol",
+            args: [],
+          },
+          {
+            ...evault,
+            functionName: "oracle",
+            args: [],
+          },
+          {
+            ...evault,
+            functionName: "unitOfAccount",
+            args: [],
+          },
+          {
+            ...evault,
+            functionName: "decimals",
+            args: [],
+          },
+        ],
+      }) as [string, string, string, string, string, number]
     } catch (error) {
-      console.error(`Failed to get asset for vault ${vaultAddress}:`, error);
-      throw new Error(`Failed to fetch asset for vault ${vaultAddress}: ${error}`);
+      results = [
+        "unknown",
+        "unknown",  
+        "unknown",
+        "unknown",
+        "unknown",
+        0,  
+      ]
+      console.error("First multicall failed, trying alternate method", error)
+    }
+
+    const [asset, name, symbol, oracle, unitOfAccount, decimals] = results
+
+    return {
+      asset,
+      name,
+      symbol,
+      oracle,
+      unitOfAccount,
+      decimals,
     }
   }
 );

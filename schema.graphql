@@ -11,14 +11,16 @@ type AaveProxy_LiquidationCall {
   receiveAToken: Boolean!
 }
 
-type EulerFactory_ProxyCreated {
+type EVaultDetails {
   id: ID!
   chainId: Int!
   timestamp: BigInt!
   asset: String!
-  upgradeable: Boolean!
-  implementation: String!
-  trailingData: String!
+  name: String!
+  symbol: String!
+  oracle: String!
+  unitOfAccount: String!
+  decimals: Int!
 }
 
 type EulerVaultProxy_Liquidate {
@@ -68,7 +70,9 @@ type GeneralizedLiquidation {
   collateralAsset: String
   debtAsset: String
   repaidAssets: BigInt
+  repaidAssetsUSD: Float
   seizedAssets: BigInt
+  seizedAssetsUSD: Float
 }
 
 type LiquidationStats {
@@ -99,4 +103,14 @@ type Token {
   name: String!
   symbol: String!
   decimals: Int!
+}
+
+type AaveV3ReserveConfigurationData {
+  id: ID!
+  chainId: Int!
+  decimals: Int
+  ltv: BigInt
+  cf: BigInt
+  liq_inc: BigInt
+  reserve_factor: BigInt
 }
