@@ -64,8 +64,8 @@ type GeneralizedLiquidation {
   chainId: Int!
   timestamp: BigInt! @index
   protocol: String!
-  borrower: String!
-  liquidator: String!
+  borrower: Borrower!
+  liquidator: Liquidator!
   txHash: String!
   collateralAsset: String
   debtAsset: String
@@ -84,7 +84,7 @@ type LiquidationStats {
   totalCount: BigInt!
 }
 
-type LiquidatorData {
+type Liquidator {
   id: ID!
   liquidator: String!
   chainId: Int
@@ -92,7 +92,20 @@ type LiquidatorData {
   eulerLiquidations: BigInt!
   morphoLiquidations: BigInt!
   totalLiquidations: BigInt!
-  liquidations: [String!]!
+  liquidations: [GeneralizedLiquidation!]! @derivedFrom(field: "liquidator")
+  firstLiquidationTimestamp: BigInt
+  lastLiquidationTimestamp: BigInt
+}
+
+type Borrower {
+  id: ID!
+  borrower: String!
+  chainId: Int
+  aaveLiquidations: BigInt!
+  eulerLiquidations: BigInt!
+  morphoLiquidations: BigInt!
+  totalLiquidations: BigInt!
+  liquidations: [GeneralizedLiquidation!]! @derivedFrom(field: "borrower")
   firstLiquidationTimestamp: BigInt
   lastLiquidationTimestamp: BigInt
 }

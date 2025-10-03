@@ -14,7 +14,7 @@ import {
   LiquidationStats,
 } from "generated";
 import type { Morpho_CreateMarket as Morpho_CreateMarketEntity } from "generated/src/Types.gen";
-import { updateLiquidatorData } from "./helpers";
+import { updateLiquidatorData, updateBorrowerData } from "./helpers";
 import { getEVaultMetadata } from "./evaultMetadata";
 import { getTokenDetails } from "./tokenDetails";
 import { getQuote } from "./evaultOracle";
@@ -51,11 +51,14 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
       decimals: collateralTokenMetadata.decimals,
     });
   } catch (error) {
-    context.log.error(`Failed to fetch collateral token metadata ${event.params.collateralAsset}`, {
-      tokenAddress: event.params.collateralAsset,
-      chainId: event.chainId,
-      err: error,
-    });
+    context.log.error(
+      `Failed to fetch collateral token metadata ${event.params.collateralAsset}`,
+      {
+        tokenAddress: event.params.collateralAsset,
+        chainId: event.chainId,
+        err: error,
+      }
+    );
     return;
   }
 
@@ -72,15 +75,20 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
       decimals: debtTokenMetadata.decimals,
     });
   } catch (error) {
-    context.log.error(`Failed to fetch debt token metadata ${event.params.debtAsset}`, {
-      tokenAddress: event.params.debtAsset,
-      chainId: event.chainId,
-      err: error,
-    });
+    context.log.error(
+      `Failed to fetch debt token metadata ${event.params.debtAsset}`,
+      {
+        tokenAddress: event.params.debtAsset,
+        chainId: event.chainId,
+        err: error,
+      }
+    );
     return;
   }
 
-  const collateralToken = await context.Token.get(`${event.chainId}_${event.params.collateralAsset}`);
+  const collateralToken = await context.Token.get(
+    `${event.chainId}_${event.params.collateralAsset}`
+  );
   if (!collateralToken) {
     context.log.error("Collateral token entity not preloaded", {
       tokenAddress: event.params.collateralAsset,
@@ -89,7 +97,9 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
     return;
   }
 
-  const debtToken = await context.Token.get(`${event.chainId}_${event.params.debtAsset}`);
+  const debtToken = await context.Token.get(
+    `${event.chainId}_${event.params.debtAsset}`
+  );
   if (!debtToken) {
     context.log.error("Debt token entity not preloaded", {
       tokenAddress: event.params.debtAsset,
@@ -98,7 +108,8 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
     return;
   }
 
-  const collateralSymbol = collateralToken.symbol || event.params.collateralAsset;
+  const collateralSymbol =
+    collateralToken.symbol || event.params.collateralAsset;
   const debtSymbol = debtToken.symbol || event.params.debtAsset;
 
   let collateralMarketDetails: any;
@@ -122,11 +133,14 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
       });
     }
   } catch (error) {
-    context.log.warn(`Failed to fetch Aave V3 reserve data for collateral ${event.params.collateralAsset} on chain ${event.chainId}, continuing without it`, {
-      tokenAddress: event.params.collateralAsset,
-      chainId: event.chainId,
-      err: error,
-    });
+    context.log.warn(
+      `Failed to fetch Aave V3 reserve data for collateral ${event.params.collateralAsset} on chain ${event.chainId}, continuing without it`,
+      {
+        tokenAddress: event.params.collateralAsset,
+        chainId: event.chainId,
+        err: error,
+      }
+    );
     // Don't return here - we can still process the liquidation without the reserve data
   }
 
@@ -148,11 +162,14 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
       });
     }
   } catch (error) {
-    context.log.warn(`Failed to fetch Aave V3 reserve data for debt ${event.params.debtAsset} on chain ${event.chainId}, continuing without it`, {
-      tokenAddress: event.params.debtAsset,
-      chainId: event.chainId,
-      err: error,
-    });
+    context.log.warn(
+      `Failed to fetch Aave V3 reserve data for debt ${event.params.debtAsset} on chain ${event.chainId}, continuing without it`,
+      {
+        tokenAddress: event.params.debtAsset,
+        chainId: event.chainId,
+        err: error,
+      }
+    );
     // Don't return here - we can still process the liquidation without the reserve data
   }
 
@@ -186,35 +203,48 @@ AaveProxy.LiquidationCall.handler(async ({ event, context }) => {
     });
   }
 
-  const seizedAssetsUSD = (Number(event.params.liquidatedCollateralAmount) / (10**collateralToken.decimals)) * (Number(collateralPrice.price) / (10**8));
-  const repaidAssetsUSD = (Number(event.params.debtToCover) / (10**debtToken.decimals)) * (Number(debtPrice.price) / (10**8));
+  const seizedAssetsUSD =
+    (Number(event.params.liquidatedCollateralAmount) /
+      10 ** collateralToken.decimals) *
+    (Number(collateralPrice.price) / 10 ** 8);
+  const repaidAssetsUSD =
+    (Number(event.params.debtToCover) / 10 ** debtToken.decimals) *
+    (Number(debtPrice.price) / 10 ** 8);
+
+  // Update liquidator data first to get the liquidator ID
+  const liquidatorId = await updateLiquidatorData(
+    context,
+    event.params.liquidator,
+    event.chainId,
+    "Aave",
+    BigInt(event.block.timestamp)
+  );
+
+  // Update borrower data to get the borrower ID
+  const borrowerId = await updateBorrowerData(
+    context,
+    event.params.user,
+    event.chainId,
+    "Aave",
+    BigInt(event.block.timestamp)
+  );
 
   const generalized: GeneralizedLiquidation = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     chainId: event.chainId,
     timestamp: BigInt(event.block.timestamp),
     protocol: "Aave",
-    borrower: event.params.user,
-    liquidator: event.params.liquidator,
+    borrower_id: borrowerId,
+    liquidator_id: liquidatorId,
     txHash: event.transaction.hash,
     collateralAsset: collateralSymbol,
     debtAsset: debtSymbol,
     repaidAssets: event.params.debtToCover,
     repaidAssetsUSD: repaidAssetsUSD,
     seizedAssets: event.params.liquidatedCollateralAmount,
-    seizedAssetsUSD:seizedAssetsUSD,
+    seizedAssetsUSD: seizedAssetsUSD,
   };
   context.GeneralizedLiquidation.set(generalized);
-
-  // Update liquidator data
-  await updateLiquidatorData(
-    context,
-    event.params.liquidator,
-    event.chainId,
-    "Aave",
-    generalized.id,
-    BigInt(event.block.timestamp)
-  );
 
   // Update per-chain stats
   const perChainStatsId = `stats_${event.chainId}`;
@@ -275,28 +305,36 @@ EulerFactory.ProxyCreated.handler(async ({ event, context }) => {
           decimals: tokenMetadata.decimals,
         });
       } catch (error) {
-        context.log.error(`Failed to fetch Euler token metadata ${evaultMetadata.asset}`, {
-          tokenAddress: evaultMetadata.asset,
-          chainId: event.chainId,
-          err: error,
-        });
+        context.log.error(
+          `Failed to fetch Euler token metadata ${evaultMetadata.asset}`,
+          {
+            tokenAddress: evaultMetadata.asset,
+            chainId: event.chainId,
+            err: error,
+          }
+        );
         return;
       }
     } else {
-      context.log.error(`Failed to fetch EVault asset metadata ${event.params.proxy}`, {
-        vaultAddress: event.params.proxy,
-        chainId: event.chainId,
-      });
+      context.log.error(
+        `Failed to fetch EVault asset metadata ${event.params.proxy}`,
+        {
+          vaultAddress: event.params.proxy,
+          chainId: event.chainId,
+        }
+      );
     }
   } catch (error) {
-    context.log.error(`Failed to fetch EVault asset metadata ${event.params.proxy}`, {
-      vaultAddress: event.params.proxy,
-      chainId: event.chainId,
-      err: error,
-    });
+    context.log.error(
+      `Failed to fetch EVault asset metadata ${event.params.proxy}`,
+      {
+        vaultAddress: event.params.proxy,
+        chainId: event.chainId,
+        err: error,
+      }
+    );
     return;
   }
-  
 });
 
 EulerFactory.ProxyCreated.contractRegister(async ({ event, context }) => {
@@ -321,7 +359,9 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     return;
   }
 
-  const collateralVault = await context.EVaultDetails.get(`${event.chainId}_${event.params.collateral}`);
+  const collateralVault = await context.EVaultDetails.get(
+    `${event.chainId}_${event.params.collateral}`
+  );
   if (!collateralVault?.asset) {
     context.log.error("Missing collateral vault metadata", {
       collateralVault: event.params.collateral,
@@ -330,7 +370,9 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     return;
   }
 
-  const debtVault = await context.EVaultDetails.get(`${event.chainId}_${event.srcAddress}`);
+  const debtVault = await context.EVaultDetails.get(
+    `${event.chainId}_${event.srcAddress}`
+  );
   if (!debtVault?.asset) {
     context.log.error("Missing debt vault metadata", {
       vaultAddress: event.srcAddress,
@@ -356,7 +398,9 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     blockNumber: BigInt(event.block.number),
   });
 
-  const collateralToken = await context.Token.get(`${event.chainId}_${collateralVault.asset}`);
+  const collateralToken = await context.Token.get(
+    `${event.chainId}_${collateralVault.asset}`
+  );
   if (!collateralToken) {
     context.log.error("Collateral token not loaded", {
       tokenAddress: collateralVault.asset,
@@ -365,7 +409,9 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     return;
   }
 
-  const debtToken = await context.Token.get(`${event.chainId}_${debtVault.asset}`);
+  const debtToken = await context.Token.get(
+    `${event.chainId}_${debtVault.asset}`
+  );
   if (!debtToken) {
     context.log.error("Debt token not loaded", {
       tokenAddress: debtVault.asset,
@@ -377,13 +423,31 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
   const collateralSymbol = collateralToken.symbol || collateralVault.asset;
   const debtSymbol = debtToken.symbol || debtVault.asset;
 
+  // Update liquidator data first to get the liquidator ID
+  const liquidatorId = await updateLiquidatorData(
+    context,
+    event.params.liquidator,
+    event.chainId,
+    "Euler",
+    BigInt(event.block.timestamp)
+  );
+
+  // Update borrower data to get the borrower ID
+  const borrowerId = await updateBorrowerData(
+    context,
+    event.params.violator,
+    event.chainId,
+    "Euler",
+    BigInt(event.block.timestamp)
+  );
+
   const generalized: GeneralizedLiquidation = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     chainId: event.chainId,
     timestamp: BigInt(event.block.timestamp),
     protocol: "Euler",
-    borrower: event.params.violator,
-    liquidator: event.params.liquidator,
+    borrower_id: borrowerId,
+    liquidator_id: liquidatorId,
     txHash: event.transaction.hash,
     collateralAsset: collateralSymbol,
     debtAsset: debtSymbol,
@@ -393,16 +457,6 @@ EulerVaultProxy.Liquidate.handler(async ({ event, context }) => {
     seizedAssetsUSD: Number(yieldBalanceUSD.price) / 1e18,
   };
   context.GeneralizedLiquidation.set(generalized);
-
-  // Update liquidator data
-  await updateLiquidatorData(
-    context,
-    event.params.liquidator,
-    event.chainId,
-    "Euler",
-    generalized.id,
-    BigInt(event.block.timestamp)
-  );
 
   // Update per-chain stats
   const perChainStatsId2 = `stats_${event.chainId}`;
@@ -458,11 +512,14 @@ Morpho.CreateMarket.handler(async ({ event, context }) => {
       decimals: loanTokenMetadata.decimals,
     });
   } catch (error) {
-    context.log.error(`Failed to fetch loan token metadata ${event.params.marketParams[0]}`, {
-      tokenAddress: event.params.marketParams[0],
-      chainId: event.chainId,
-      err: error,
-    });
+    context.log.error(
+      `Failed to fetch loan token metadata ${event.params.marketParams[0]}`,
+      {
+        tokenAddress: event.params.marketParams[0],
+        chainId: event.chainId,
+        err: error,
+      }
+    );
     return;
   }
 
@@ -479,14 +536,17 @@ Morpho.CreateMarket.handler(async ({ event, context }) => {
       decimals: collateralTokenMetadata.decimals,
     });
   } catch (error) {
-    context.log.error(`Failed to fetch collateral token metadata ${event.params.marketParams[1]}`, {
-      tokenAddress: event.params.marketParams[1],
-      chainId: event.chainId,
-      err: error,
-    });
+    context.log.error(
+      `Failed to fetch collateral token metadata ${event.params.marketParams[1]}`,
+      {
+        tokenAddress: event.params.marketParams[1],
+        chainId: event.chainId,
+        err: error,
+      }
+    );
     return;
   }
-  
+
   context.Morpho_CreateMarket.set(entity);
 });
 
@@ -535,7 +595,9 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
     return;
   }
 
-  const collateralToken = await context.Token.get(`${event.chainId}_${collateralAsset}`);
+  const collateralToken = await context.Token.get(
+    `${event.chainId}_${collateralAsset}`
+  );
   if (!collateralToken) {
     context.log.error("Collateral token not loaded", {
       tokenAddress: collateralAsset,
@@ -591,16 +653,38 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
     });
   }
 
-  const seizedAssetsUSD = (Number(event.params.seizedAssets) / (10 ** collateralDecimals)) * Number(collateralPrice.price);
-  const repaidAssetsUSD = (Number(event.params.repaidAssets) / (10 ** debtDecimals)) * Number(debtPrice.price);
+  const seizedAssetsUSD =
+    (Number(event.params.seizedAssets) / 10 ** collateralDecimals) *
+    Number(collateralPrice.price);
+  const repaidAssetsUSD =
+    (Number(event.params.repaidAssets) / 10 ** debtDecimals) *
+    Number(debtPrice.price);
+
+  // Update liquidator data first to get the liquidator ID
+  const liquidatorId = await updateLiquidatorData(
+    context,
+    event.params.caller,
+    event.chainId,
+    "Morpho",
+    BigInt(event.block.timestamp)
+  );
+
+  // Update borrower data to get the borrower ID
+  const borrowerId = await updateBorrowerData(
+    context,
+    event.params.borrower,
+    event.chainId,
+    "Morpho",
+    BigInt(event.block.timestamp)
+  );
 
   const generalized: GeneralizedLiquidation = {
     id: `${event.chainId}_${event.block.number}_${event.logIndex}`,
     chainId: event.chainId,
     timestamp: BigInt(event.block.timestamp),
     protocol: "Morpho",
-    borrower: event.params.borrower,
-    liquidator: event.params.caller,
+    borrower_id: borrowerId,
+    liquidator_id: liquidatorId,
     txHash: event.transaction.hash,
     collateralAsset: collateralSymbol,
     debtAsset: debtSymbol,
@@ -610,16 +694,6 @@ Morpho.Liquidate.handler(async ({ event, context }) => {
     seizedAssetsUSD: seizedAssetsUSD,
   };
   context.GeneralizedLiquidation.set(generalized);
-
-  // Update liquidator data
-  await updateLiquidatorData(
-    context,
-    event.params.caller,
-    event.chainId,
-    "Morpho",
-    generalized.id,
-    BigInt(event.block.timestamp)
-  );
 
   // Update per-chain stats
   const perChainStatsId3 = `stats_${event.chainId}`;
