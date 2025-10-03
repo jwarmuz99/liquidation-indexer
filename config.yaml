@@ -2,6 +2,7 @@
 name: envio-indexer
 unordered_multichain_mode: true
 preload_handlers: true
+rollback_on_reorg: false
 contracts:
   - name: AaveProxy
     handler: src/EventHandlers.ts
