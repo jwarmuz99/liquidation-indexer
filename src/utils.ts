@@ -56,22 +56,8 @@ export function getAaveV3ProtocolDataProviderContract(address: Address) {
     return { address: address as `0x${string}`, abi: aaveV3ProtocolDataProviderAbi };
 }
 
-export const getRPCUrl = (chainId: number) => {
-    const rpcUrls: Record<number, string> = {
-      1: process.env.RPC_URL_1 || "https://eth.drpc.org",
-      10: process.env.RPC_URL_10 || "https://optimism.drpc.org",
-      42161: process.env.RPC_URL_42161 || "https://arbitrum.drpc.org",
-      137: process.env.RPC_URL_137 || "https://polygon.drpc.org",
-      8453: process.env.RPC_URL_8453 || "https://base.drpc.org",
-      100: process.env.RPC_URL_100 || "https://gnosis.drpc.org",
-      59144: process.env.RPC_URL_59144 || "https://linea.drpc.org",
-      534352: process.env.RPC_URL_534352 || "https://scroll.drpc.org",
-      43114: process.env.RPC_URL_43114 || "https://avalanche.drpc.org",
-      56: process.env.RPC_URL_56 || "https://bsc.drpc.org",
-    };
-    const RPC_URL = rpcUrls[chainId] || process.env.RPC_URL || "https://eth.drpc.org";
-    return RPC_URL;
-};
+// Re-export RPC manager functions for backward compatibility and convenience
+export { getRPCUrl, getAllRPCUrls, executeWithRPCRotation } from "./rpcManager";
   
 export const getChain = (chainId: number) => {
     const chainMap: Record<number, any> = {
@@ -109,15 +95,15 @@ export const getAaveV3UiPoolDataProviderAddress = (chainId: number) => {
 
 export const getAaveV3PoolAddressesProviderAddress = (chainId: number) => {
     const chainMap: Record<number, string> = {
-        1: AaveV3Ethereum.POOL_ADDRESSES_PROVIDER, // 
-        10: AaveV3Optimism.POOL_ADDRESSES_PROVIDER, // 
-        42161: AaveV3Arbitrum.POOL_ADDRESSES_PROVIDER, // 
-        137: AaveV3Polygon.POOL_ADDRESSES_PROVIDER, // 
-        8453: AaveV3Base.POOL_ADDRESSES_PROVIDER, // 
+        1: AaveV3Ethereum.POOL_ADDRESSES_PROVIDER,  
+        10: AaveV3Optimism.POOL_ADDRESSES_PROVIDER,  
+        42161: AaveV3Arbitrum.POOL_ADDRESSES_PROVIDER,  
+        137: AaveV3Polygon.POOL_ADDRESSES_PROVIDER,  
+        8453: AaveV3Base.POOL_ADDRESSES_PROVIDER,  
         100: AaveV3Gnosis.POOL_ADDRESSES_PROVIDER,
         59144: AaveV3Linea.POOL_ADDRESSES_PROVIDER,
         534352: AaveV3Scroll.POOL_ADDRESSES_PROVIDER,
-        43114: AaveV3Avalanche.POOL_ADDRESSES_PROVIDER, // 
+        43114: AaveV3Avalanche.POOL_ADDRESSES_PROVIDER,  
         56: AaveV3BNB.POOL_ADDRESSES_PROVIDER,
     };
     const address = chainMap[chainId] || "";

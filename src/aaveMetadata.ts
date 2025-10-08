@@ -1,8 +1,6 @@
-import { createPublicClient, http } from "viem";
 import { experimental_createEffect, S } from "envio";
 import { 
-  getChain, 
-  getRPCUrl, 
+  executeWithRPCRotation,
   getAaveUiPoolDataProviderContract, 
   getAaveV3UiPoolDataProviderAddress, 
   getAaveV3PoolAddressesProviderAddress, 
@@ -43,27 +41,24 @@ export const getAaveV3ReserveData = experimental_createEffect(
     // Get the pool addresses provider address for this chain
     const poolAddressesProviderAddress = getAaveV3PoolAddressesProviderAddress(chainId);
 
-    // Map chain IDs to RPC URLs for all configured chains
-    const RPC_URL = getRPCUrl(chainId);
-
-    // Create a public client for the specific chain
-    const client = createPublicClient({
-      chain: getChain(chainId),
-      transport: http(RPC_URL),
-    });
-
     const poolDataProviderContract = getAaveUiPoolDataProviderContract(
       poolDataProviderAddress as `0x${string}`
     );
 
     try {
-      // Call getReservesData to get all reserve data
-      const result = await client.readContract({
-        ...poolDataProviderContract,
-        functionName: "getReservesData",
-        args: [poolAddressesProviderAddress],
-        blockNumber: BigInt(blockNumber),
-      });
+      // Try primary method with RPC rotation
+      const result = await executeWithRPCRotation(
+        chainId,
+        async (client) => {
+          return await client.readContract({
+            ...poolDataProviderContract,
+            functionName: "getReservesData",
+            args: [poolAddressesProviderAddress],
+            blockNumber: BigInt(blockNumber),
+          });
+        },
+        { enableBatch: false, enableMulticall: false }
+      );
 
       const [reservesData] = result as [any[]];
 
@@ -88,17 +83,24 @@ export const getAaveV3ReserveData = experimental_createEffect(
       };
     } catch (error) {
       try {
+        // Try fallback method with RPC rotation
         const protocolDataProviderAddress = getAaveV3ProtocolDataProviderAddress(chainId);
         const protocolDataProviderContract = getAaveV3ProtocolDataProviderContract(
           protocolDataProviderAddress as `0x${string}`
         );
 
-        const result = await client.readContract({
-          ...protocolDataProviderContract,
-          functionName: "getReserveConfigurationData",
-          args: [tokenAddress],
-          blockNumber: BigInt(blockNumber),
-        });
+        const result = await executeWithRPCRotation(
+          chainId,
+          async (client) => {
+            return await client.readContract({
+              ...protocolDataProviderContract,
+              functionName: "getReserveConfigurationData",
+              args: [tokenAddress],
+              blockNumber: BigInt(blockNumber),
+            });
+          },
+          { enableBatch: false, enableMulticall: false }
+        );
 
         const [reservesData] = result as [any];
         const decimals = Number(reservesData.decimals);
@@ -116,7 +118,10 @@ export const getAaveV3ReserveData = experimental_createEffect(
         };
 
       } catch (error) {
-        console.error(`Failed to fetch Aave V3 reserve data for ${tokenAddress} on chain ${chainId} at block ${blockNumber}`, error);
+        console.error(
+          `All RPC attempts failed for getAaveV3ReserveData on chain ${chainId}. ` +
+          `Token: ${tokenAddress}, Block: ${blockNumber}. Error: ${error}`
+        );
         return {
           decimals: 0,
           ltv: 0n,
