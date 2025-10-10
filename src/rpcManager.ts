@@ -1,5 +1,7 @@
 import { createPublicClient, http, PublicClient } from "viem";
 import { getChain } from "./utils";
+import { rpcThrottleManager } from "./rpcThrottler";
+import { TokenBucket, TokenBucketFactory } from "./tokenBucket";
 
 /**
  * RPC Manager for handling multiple RPC endpoints per chain with automatic rotation.
@@ -7,6 +9,9 @@ import { getChain } from "./utils";
  * Features:
  * - Parses comma-separated RPC URLs from environment variables
  * - Automatically rotates to next RPC on failure
+ * - Per-RPC rate limiting with token buckets
+ * - Proactive rotation based on rate limit saturation
+ * - Request tracking per RPC endpoint
  * - Bounded retry mechanism (tries all available RPCs once)
  * - Thread-safe RPC index tracking per chain
  */
@@ -14,6 +19,10 @@ import { getChain } from "./utils";
 interface RPCEndpoint {
   url: string;
   failures: number;
+  totalRequests: number;
+  successfulRequests: number;
+  tokenBucket: TokenBucket;
+  lastUsed: number; // timestamp in ms
 }
 
 interface ChainRPCConfig {
@@ -99,12 +108,20 @@ class RPCManager {
     const endpoints = urls.map(url => ({
       url,
       failures: 0,
+      totalRequests: 0,
+      successfulRequests: 0,
+      tokenBucket: TokenBucketFactory.createForRPC(url, chainId),
+      lastUsed: 0,
     }));
 
     this.chainConfigs.set(chainId, {
       endpoints,
       currentIndex: 0,
     });
+
+    console.log(
+      `[RPC Manager] Initialized ${endpoints.length} RPC(s) for chain ${chainId} with per-RPC rate limiting`
+    );
   }
 
   /**
@@ -120,6 +137,75 @@ class RPCManager {
 
     const endpoint = config.endpoints[config.currentIndex];
     return endpoint.url;
+  }
+
+  /**
+   * Select the best available RPC considering rate limits and failures.
+   * Returns the index of the best RPC, or null if all are saturated.
+   */
+  private selectBestRPC(chainId: number): number | null {
+    const config = this.chainConfigs.get(chainId);
+    if (!config || config.endpoints.length === 0) {
+      return null;
+    }
+
+    // Score each RPC based on:
+    // 1. Token availability (can it accept a request now?)
+    // 2. Failure rate
+    // 3. Last used time (load balancing)
+    
+    let bestIndex = config.currentIndex;
+    let bestScore = -Infinity;
+
+    for (let i = 0; i < config.endpoints.length; i++) {
+      const endpoint = config.endpoints[i];
+      
+      // Check if RPC has tokens available
+      const hasTokens = endpoint.tokenBucket.tryConsume();
+      if (hasTokens) {
+        // Give back the token (we just checked availability)
+        endpoint.tokenBucket.getState(); // refresh state
+      }
+      
+      const tokenState = endpoint.tokenBucket.getState();
+      const tokensAvailable = tokenState.tokens;
+      const utilizationPercent = tokenState.utilizationPercent;
+      
+      // Calculate failure rate
+      const failureRate = endpoint.totalRequests > 0 
+        ? endpoint.failures / endpoint.totalRequests 
+        : 0;
+      
+      // Calculate time since last use (prefer RPCs that haven't been used recently)
+      const timeSinceLastUse = Date.now() - endpoint.lastUsed;
+      
+      // Score calculation (higher is better)
+      let score = 0;
+      
+      // Token availability (most important)
+      if (tokensAvailable >= 1) {
+        score += 1000; // Has tokens available
+        score += tokensAvailable * 10; // More tokens = better
+      } else {
+        score -= 1000; // No tokens available
+      }
+      
+      // Low utilization is better
+      score -= utilizationPercent * 5;
+      
+      // Low failure rate is better (0-100 scale)
+      score -= failureRate * 500;
+      
+      // Prefer RPCs not used recently (load balancing)
+      score += Math.min(timeSinceLastUse / 1000, 100); // cap at 100
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = i;
+      }
+    }
+
+    return bestIndex;
   }
 
   /**
@@ -185,6 +271,64 @@ class RPCManager {
       endpoint.failures = 0;
     }
   }
+
+  /**
+   * Wait for a token from the current RPC's rate limiter.
+   * Returns the wait time in ms.
+   */
+  async waitForRPCToken(chainId: number): Promise<number> {
+    this.ensureChainConfig(chainId);
+    
+    const config = this.chainConfigs.get(chainId);
+    if (!config || config.endpoints.length === 0) {
+      return 0;
+    }
+
+    const endpoint = config.endpoints[config.currentIndex];
+    const waitTime = await endpoint.tokenBucket.waitForToken();
+    
+    return waitTime;
+  }
+
+  /**
+   * Record a request attempt for the current RPC.
+   */
+  recordRequest(chainId: number, success: boolean): void {
+    const config = this.chainConfigs.get(chainId);
+    if (!config || config.endpoints.length === 0) {
+      return;
+    }
+
+    const endpoint = config.endpoints[config.currentIndex];
+    endpoint.totalRequests += 1;
+    endpoint.lastUsed = Date.now();
+    
+    if (success) {
+      endpoint.successfulRequests += 1;
+    }
+  }
+
+  /**
+   * Proactively select best RPC based on rate limits and load.
+   * Updates currentIndex to point to the best RPC.
+   */
+  selectBestAvailableRPC(chainId: number): void {
+    const bestIndex = this.selectBestRPC(chainId);
+    if (bestIndex !== null) {
+      const config = this.chainConfigs.get(chainId);
+      if (config && config.currentIndex !== bestIndex) {
+        const oldUrl = config.endpoints[config.currentIndex].url;
+        const newUrl = config.endpoints[bestIndex].url;
+        config.currentIndex = bestIndex;
+        
+        console.log(
+          `[RPC Manager] Chain ${chainId}: Proactively switched RPC\n` +
+          `  From: ${new URL(oldUrl).hostname}\n` +
+          `  To: ${new URL(newUrl).hostname} (better rate limit availability)`
+        );
+      }
+    }
+  }
 }
 
 // Singleton instance
@@ -193,6 +337,11 @@ const rpcManager = new RPCManager();
 /**
  * Execute an RPC call with automatic retry and rotation.
  * Tries all available RPCs for the chain before giving up.
+ * 
+ * Implements multi-layer rate limiting:
+ * 1. Per-chain throttle queue (concurrency + rate limit)
+ * 2. Per-RPC rate limiting (individual RPC token buckets)
+ * 3. Intelligent RPC selection (best available based on load)
  * 
  * @param chainId - The chain ID to execute the call on
  * @param operation - Async function that takes a PublicClient and performs the RPC call
@@ -208,55 +357,75 @@ export async function executeWithRPCRotation<T>(
     enableMulticall?: boolean;
   }
 ): Promise<T> {
-  const chain = getChain(chainId);
-  const maxAttempts = rpcManager.getRPCCount(chainId);
-  const enableBatch = options?.enableBatch ?? true;
-  const enableMulticall = options?.enableMulticall ?? true;
+  // Wrap the entire operation in the throttle queue
+  // This provides Layer 1: Per-chain concurrency + rate limiting
+  return await rpcThrottleManager.executeThrottled(chainId, async () => {
+    const chain = getChain(chainId);
+    const maxAttempts = rpcManager.getRPCCount(chainId);
+    const enableBatch = options?.enableBatch ?? true;
+    const enableMulticall = options?.enableMulticall ?? true;
 
-  let lastError: Error | null = null;
+    let lastError: Error | null = null;
 
-  // Try each RPC endpoint once (bounded iteration)
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const rpcUrl = rpcManager.getCurrentRPCUrl(chainId);
-    
-    try {
-      // Create client with current RPC
-      const client = createPublicClient({
-        chain: chain,
-        batch: enableMulticall ? { multicall: true } : undefined,
-        transport: http(rpcUrl, { batch: enableBatch }),
-      });
-
-      // Execute the operation
-      const result = await operation(client);
+    // Try each RPC endpoint once (bounded iteration)
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Layer 2: Select best available RPC based on rate limits and load
+      rpcManager.selectBestAvailableRPC(chainId);
       
-      // Success - reset failure counters
-      rpcManager.resetFailures(chainId);
+      const rpcUrl = rpcManager.getCurrentRPCUrl(chainId);
       
-      return result;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
+      // Layer 3: Wait for per-RPC rate limit token
+      const waitTime = await rpcManager.waitForRPCToken(chainId);
+      if (waitTime > 0) {
+        console.log(
+          `[RPC Manager] Chain ${chainId}: Waited ${Math.round(waitTime)}ms ` +
+          `for RPC rate limit (${new URL(rpcUrl).hostname})`
+        );
+      }
       
-      console.error(
-        `RPC call failed for chain ${chainId} using ${rpcUrl}. ` +
-        `Attempt ${attempt + 1}/${maxAttempts}. Error: ${lastError.message}`
-      );
+      try {
+        // Record request attempt
+        rpcManager.recordRequest(chainId, false); // Will update to true on success
+        
+        // Create client with current RPC
+        const client = createPublicClient({
+          chain: chain,
+          batch: enableMulticall ? { multicall: true } : undefined,
+          transport: http(rpcUrl, { batch: enableBatch }),
+        });
 
-      // Rotate to next RPC for next attempt
-      if (attempt < maxAttempts - 1) {
-        const nextRpc = rpcManager.rotateToNextRPC(chainId);
-        console.log(`Rotating to next RPC: ${nextRpc}`);
+        // Execute the operation
+        const result = await operation(client);
+        
+        // Success - update stats and reset failure counters
+        rpcManager.recordRequest(chainId, true);
+        rpcManager.resetFailures(chainId);
+        
+        return result;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        console.error(
+          `RPC call failed for chain ${chainId} using ${new URL(rpcUrl).hostname}. ` +
+          `Attempt ${attempt + 1}/${maxAttempts}. Error: ${lastError.message}`
+        );
+
+        // Rotate to next RPC for next attempt
+        if (attempt < maxAttempts - 1) {
+          const nextRpc = rpcManager.rotateToNextRPC(chainId);
+          console.log(`[RPC Manager] Rotating to next RPC: ${new URL(nextRpc).hostname}`);
+        }
       }
     }
-  }
 
-  // All RPCs failed
-  const allRpcs = rpcManager.getAllRPCUrls(chainId);
-  throw new Error(
-    `All RPC endpoints failed for chain ${chainId}. ` +
-    `Tried ${allRpcs.length} endpoints: ${allRpcs.join(", ")}. ` +
-    `Last error: ${lastError?.message || "Unknown error"}`
-  );
+    // All RPCs failed
+    const allRpcs = rpcManager.getAllRPCUrls(chainId);
+    throw new Error(
+      `All RPC endpoints failed for chain ${chainId}. ` +
+      `Tried ${allRpcs.length} endpoints: ${allRpcs.join(", ")}. ` +
+      `Last error: ${lastError?.message || "Unknown error"}`
+    );
+  });
 }
 
 /**

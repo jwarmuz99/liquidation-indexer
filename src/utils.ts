@@ -58,6 +58,9 @@ export function getAaveV3ProtocolDataProviderContract(address: Address) {
 
 // Re-export RPC manager functions for backward compatibility and convenience
 export { getRPCUrl, getAllRPCUrls, executeWithRPCRotation } from "./rpcManager";
+
+// Re-export throttle manager for advanced usage/monitoring
+export { rpcThrottleManager } from "./rpcThrottler";
   
 export const getChain = (chainId: number) => {
     const chainMap: Record<number, any> = {
